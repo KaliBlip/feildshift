@@ -1,0 +1,7 @@
+# Pilot region configuration. Fill in once the partner farm location is confirmed.
+region_name: ashanti_pilot
+centre_lat: null        # decimal degrees
+centre_lon: null        # decimal degrees
+half_width_km: 25       # about a 50 x 50 km area
+analysis_grid: null     # decide after checking native dataset resolutions
+time_step: dekad        # 10-day steps

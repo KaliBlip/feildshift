@@ -1,264 +1,384 @@
-
 # Field Shift 🌍🌱
 
-### Adaptive Agricultural Intelligence Powered by NASA Earth Observations
+### Evidence-graded crop-rotation decision support for a changing climate, powered by NASA Earth observations
 
-**Field Shift** is an agricultural intelligence and decision-support platform that combines NASA Earth observation data, machine learning, statistical analysis, agricultural science and farmer knowledge to help farmers explore more resilient farming strategies.
-
-Our goal is to transform environmental data into actionable agricultural insights, helping farmers understand changing environmental conditions, discover potential agricultural opportunities and make more informed crop-rotation decisions.
-
-> Farmers remain at the centre of every decision. Field Shift is designed to support agricultural expertise, not replace it.
+**NASA Space Apps Challenge 2026 · Challenge: _Field Shift: Adapting Farms with NASA Data_**
+**Initial focus region: Ashanti Region, Ghana**
 
 ---
 
-## 🌍 The Problem
+## In one paragraph
 
-Agriculture is increasingly affected by changing environmental conditions, including:
+Field Shift helps farmers explore crop-rotation strategies that could protect soil, conserve water and cope with changing weather. It turns NASA satellite data into a **seasonal vulnerability calendar** for a farm area, then compares **at least three rotation strategies, including the farmer's existing rotation**, scored against **the farmer's own priorities**. Every recommendation ships with an **Evidence Passport**: what supports it, how confident we are, what we don't know, and what local experts must check before anyone acts on it.
 
-- Unpredictable rainfall patterns.
-- Rising temperatures and heat stress.
-- Soil moisture variability.
-- Water availability challenges.
-- Changing vegetation and environmental conditions.
-- Declining soil health and unsustainable farming practices.
-
-These challenges make it increasingly difficult for farmers to determine which crops to grow, when to grow them and which crop-rotation strategies may improve long-term agricultural resilience.
-
-Although Earth observation satellites provide valuable environmental information, translating these observations into locally relevant agricultural decisions remains challenging.
-
-**Field Shift aims to bridge this gap.**
-
-## 💡 Our Solution
-
-Field Shift is designed as an adaptive agricultural intelligence system with two interconnected learning components:
-
-### 1. Environmental Intelligence
-
-Uses NASA Earth observation datasets and machine-learning techniques to:
-
-- Identify environmental patterns.
-- Detect unusual environmental conditions.
-- Analyse rainfall and temperature trends.
-- Explore soil moisture and vegetation behaviour.
-- Discover relationships between environmental variables.
-- Investigate potential environmental changes and emerging patterns.
-
-### 2. Agricultural Intelligence
-
-Combines environmental insights with agricultural knowledge and local information to:
-
-- Evaluate crop suitability.
-- Explore alternative crop-rotation strategies.
-- Assess potential environmental and agricultural risks.
-- Compare farming strategies against existing practices.
-- Incorporate farmer priorities and expert knowledge.
-- Evaluate agricultural outcomes as reliable field observations become available.
-
-### 3. Intelligence Fusion
-
-The two systems work together through an intelligence layer that combines:
-
-- Validated machine-learning outputs.
-- Statistical findings.
-- Agricultural knowledge.
-- Local soil and crop information.
-- Farmer observations and preferences.
-- Uncertainty and data-quality assessments.
-
-The result is an explainable decision-support process rather than an unexplained automated recommendation.
+> **Farmers stay at the centre of every decision.** Field Shift supports agricultural expertise. It does not replace it, and it does not issue unexplained instructions.
 
 ---
 
-## 🧠 Machine Learning & Intelligence
+## Table of contents
 
-Field Shift is designed around custom-trained machine-learning models using environmental datasets and agricultural information.
+1. [The problem](#-the-problem)
+2. [Why Ashanti, Ghana](#-why-ashanti-ghana)
+3. [What makes Field Shift different](#-what-makes-field-shift-different)
+4. [How it works](#-how-it-works)
+5. [Rotation strategy comparison](#-rotation-strategy-comparison)
+6. [Data sources](#-data-sources)
+7. [Machine learning and analytics](#-machine-learning-and-analytics)
+8. [Farmer-centred design](#-farmer-centred-design)
+9. [Scientific integrity and explainability](#-scientific-integrity-and-explainability)
+10. [Learning from field outcomes](#-learning-from-field-outcomes)
+11. [Challenge requirements map](#-challenge-requirements-map)
+12. [Concepts explained simply](#-concepts-explained-simply)
+13. [Architecture](#-architecture)
+14. [Project status and roadmap](#-project-status-and-roadmap)
+15. [Limitations](#-limitations)
+16. [Responsible data use](#-responsible-data-use)
+17. [References](#-data-and-references)
+18. [Team and license](#-team-and-license)
 
-Our initial model portfolio includes:
+---
 
-| Capability                           | Proposed approach              |
-| ------------------------------------ | ------------------------------ |
-| Environmental anomaly detection      | Isolation Forest               |
-| Environmental pattern discovery      | K-means clustering             |
-| Rainfall and temperature forecasting | Statistical time-series models |
-| Environmental relationships          | Regression analysis            |
-| Crop suitability                     | Agricultural knowledge + ML    |
-| Crop-rotation assessment             | Hybrid intelligence approach   |
+## 🌍 The problem
 
-Models will be trained and evaluated against appropriate datasets and baselines.
+Farmers worldwide face unpredictable rainfall, rising temperatures and heat stress, soil moisture swings, water shortages, erosion, nutrient depletion and declining soil health. These pressures make a basic question harder every year:
 
-We distinguish between environmental patterns, agricultural predictions and experimentally validated farming outcomes. NASA observations alone are not treated as ground truth for crop yields or rotation success.
+> **What should I grow next, and in what order, so that my soil and my income hold up under changing conditions?**
 
-## 🛰️ Data Sources
+A crop that restores soil in one place may drain water, invite disease, miss the local market or clash with the growing season somewhere else. Satellites observe all of this, but raw satellite data does not answer the farmer's question. **The gap is translation**: from pixels and time series to a locally meaningful, honest, farmer-friendly comparison of options.
 
-Field Shift is designed to integrate Earth observation datasets and relevant agricultural information.
+---
 
-| Data source            | Intended application                       |
-| ---------------------- | ------------------------------------------ |
-| NASA POWER             | Meteorological and environmental variables |
-| GPM IMERG              | Precipitation and rainfall analysis        |
-| NASA SMAP              | Surface soil moisture observations         |
-| Landsat                | Vegetation and land-surface analysis       |
-| Local soil information | Soil characteristics and fertility         |
-| Agricultural knowledge | Crop requirements and rotation principles  |
-| Farmer observations    | Local experience and field outcomes        |
+## 🌱 Why Ashanti, Ghana
 
-Data availability, temporal coverage, spatial resolution, quality flags and product versions will be considered throughout the analysis pipeline.
+Ashanti sits in Ghana's forest and forest-transition zones. Conditions that make it a strong, demanding test case:
 
-## 🌱 Initial Agricultural Focus
+- **Two rainy seasons** (broadly March to July and September to November), so planting-window timing matters a great deal.
+- **Heavy cloud and humidity**, which leave gaps in optical satellite records. A real data-quality challenge we address directly.
+- **Rainfed, smallholder-dominated farming.** Many farms are smaller than a coarse satellite pixel, so scale honesty matters.
+- **Mixed cropping systems** (maize, cassava, yam, plantain, legumes, vegetables and perennial tree crops such as cocoa).
+- **Real exposure to climate variability**: shifting rainy-season onset, dry spells within seasons, heat stress and soil erosion on slopes.
 
-Our initial geographical focus is&#x20;**&#x20;Ashanti Region, Ghana**.
+Most example datasets in the challenge brief are US-only (CDL, Web Soil Survey, SSURGO, PRISM, OpenET and others). We deliberately use **globally available NASA and partner datasets**, so the approach can travel beyond Ghana.
 
+---
 
+## ✨ What makes Field Shift different
 
+| # | Innovation | What it does | Why it matters |
+| - | ---------- | ------------ | -------------- |
+| 1 | **Evidence Passport** | Every strategy and finding carries evidence tier, data used, coverage, method, uncertainty, gaps and required expert review. | Moves from "black-box recommendation" to **auditable decision support**. |
+| 2 | **Vulnerability and Bare-Field Calendar** | A week-by-week or dekad-by-dekad view of rainfall reliability, soil moisture, vegetation cover, heat and erosion exposure. | Shows _when_ fields are exposed or stressed, which is the brief's core ask. |
+| 3 | **Priority-weighted transparent scoring** | Farmers set priorities (water, income, soil health, labour, market, erosion). Strategies are scored with visible, adjustable weights. | The tool adapts to the farmer's values, not the other way round. |
+| 4 | **Rank-stability testing** | Weights, inputs and climate assumptions are perturbed to test whether a strategy's ranking holds. | Tells the farmer when a recommendation is robust and when it is a toss-up. |
+| 5 | **Climate stress-testing** | Rainfall and temperature sliders, plus replay of historical analog seasons (driest, wettest, hottest on record). | Lets farmers ask "what if next season is dry?" without any forecasting claims. |
+| 6 | **Scale-honesty layer** | Compares each dataset's pixel footprint with the farm area and flags when satellites cannot resolve it. | Prevents over-claiming farm-level precision from coarse data. |
+| 7 | **Controlled feedback loop** | Farmer decisions and outcomes are logged, quality-graded and only then considered for model improvement. | Turns local experience into evidence without polluting models with noisy labels. |
+| 8 | **Low-bandwidth, plain-language outputs** | Short summary cards in plain English and (planned) Twi, printable and shareable. | Usable by farmers and extension officers with limited connectivity or technical background. |
 
+---
 
-## 🔬 Farmer-Centred Adaptive Learning
-
-A key part of Field Shift is its approach to learning from agricultural decisions and their outcomes.
-
-The intended feedback process is:
-
-1. Analyse environmental and agricultural information.
-2. Present findings and possible strategies.
-3. Allow farmers and agricultural experts to evaluate the options.
-4. Record the decisions made and the reasons behind them.
-5. Collect observations about the resulting farming outcomes.
-6. Evaluate the reliability and relevance of the collected evidence.
-7. Incorporate validated observations into future model-development cycles.
-
-Not every observation automatically becomes a training label. Outcomes must be evaluated in context, accounting for factors such as pests, management practices, rainfall, soil conditions and seed quality.
-
-Farmer experience is treated as valuable evidence, even when an observation has not yet been scientifically validated.
-
-## 🏗️ Technical Architecture
-
-Field Shift follows a modular architecture that separates data acquisition, processing, machine learning, agricultural intelligence and decision support.
-
-**High-level workflow:**
+## ⚙️ How it works
 
 ```text
-NASA Earth Observation Data
-          |
-          v
-   Data Acquisition
-          |
-          v
- Data Quality & Processing
-          |
-          v
-  Feature Engineering
-          |
-          v
-  +---------------------+
-  | Environmental ML    |
-  | Agricultural ML     |
-  | Statistical Analysis|
-  +---------------------+
-          |
-          v
-  Intelligence Fusion
-          |
-          v
- Agricultural Assessment
-          |
-          v
- Decision Support System
-          |
-          v
- Farmer & Expert Feedback
-          |
-          v
- Evidence Evaluation
-          |
-          v
- Controlled Model Improvement
+ NASA Earth observations + partner datasets + local agronomic knowledge
+                              |
+                              v
+              Data acquisition and quality control
+        (cloud masking, gap-filling, QA flags, versioning)
+                              |
+                              v
+             Harmonisation onto a common analysis grid
+        (resample / aggregate to shared space and time steps)
+                              |
+                              v
+                     Feature engineering
+   (anomalies, rainfall reliability, dry-spell length, vegetation
+    phenology, heat-stress days, slope and erosion exposure ...)
+                              |
+              +---------------+----------------+
+              |                                |
+              v                                v
+     Environmental intelligence       Agronomic knowledge base
+  (patterns, anomalies, trends,        (crop water needs, season
+   seasonal windows, zones)             lengths, N-fixation, pests,
+              |                          erosion cover, markets)
+              +---------------+----------------+
+                              |
+                              v
+                   Intelligence fusion layer
+      (transparent multi-criteria scoring + farmer priorities)
+                              |
+                              v
+        Rotation strategy comparison (3+ strategies incl. existing)
+                              |
+                              v
+         Evidence Passport + uncertainty + required local review
+                              |
+                              v
+        Farmer and expert review  -->  logged decisions and outcomes
+                              |
+                              v
+        Evidence grading  -->  controlled model and knowledge updates
 ```
 
-### Technology Stack
-
-| Component             | Technology                  |
-| --------------------- | --------------------------- |
-| Frontend              | React, TypeScript           |
-| Styling               | Tailwind CSS                |
-| Backend               | Python, FastAPI             |
-| Machine Learning      | Scikit-learn                |
-| Data Processing       | Pandas, NumPy               |
-| Geospatial Processing | GeoPandas, Rasterio, xarray |
-| Statistical Analysis  | SciPy, Statsmodels          |
-| Visualisation         | Recharts, Matplotlib        |
-| Mapping               | Leaflet                     |
-| Database              | PostgreSQL, PostGIS         |
-
-The technology stack represents the intended implementation architecture; individual components may evolve during development.
-
-## 🔍 Scientific Integrity & Explainability
-
-Field Shift aims to make its findings understandable and traceable.
-
-Every analytical finding should communicate:
-
-- What was observed.
-- Which datasets were used.
-- The relevant spatial and temporal coverage.
-- Which analytical method was applied.
-- What the result suggests.
-- How uncertain the finding is.
-- What limitations apply.
-- What additional evidence or expert validation is needed.
-
-We distinguish between:
-
-- Established scientific evidence.
-- Data-derived statistical findings.
-- Farmer-reported observations.
-- Unverified hypotheses.
-- Expert-validated insights.
-
-Correlation is not treated as proof of causation, and satellite observations are not presented as exact farm-level measurements when their spatial resolution does not support that interpretation.
-
-## 🎯 Project Objectives
-
-Field Shift aims to:
-
-1. Make Earth observation data more useful for agricultural decision-making.
-2. Discover environmental patterns that may be relevant to farming.
-3. Explore resilient crop-rotation strategies.
-4. Integrate scientific knowledge with local agricultural experience.
-5. Develop an adaptive learning framework informed by verified field outcomes.
-6. Improve the accessibility and explainability of agricultural intelligence.
-
-## 🚧 Development Status
-
-Field Shift is being developed as part of the **NASA Space Apps Challenge 2026**.
-
-The current development focus is establishing the data-to-intelligence pipeline, integrating relevant NASA datasets, developing and evaluating machine-learning models, and demonstrating agricultural decision-support capabilities.
-
-This is an evolving project. Planned capabilities should not be interpreted as completed or scientifically validated features.
-
-**Better environmental intelligence. Better agricultural decisions. More resilient farming communities.**
+**Design principle:** satellite data describes _conditions_. Agronomic knowledge describes _crop requirements_. Farmer input describes _priorities and constraints_. Field Shift fuses the three transparently and never claims satellite data alone can predict yield or rotation success.
 
 ---
 
-## 🏆 Challenge
+## 🔄 Rotation strategy comparison
 
-**NASA Space Apps Challenge 2026**
+The challenge asks for a comparison of **at least three strategies, including the existing rotation**. For each strategy, Field Shift produces a standard comparison card.
 
-Challenge: *Field Shift: Adapting Farms with NASA Data*
+### Illustrative candidate strategies for Ashanti
 
+> These are **starting hypotheses** drawn from common regional practice. They are _not_ validated recommendations. Final candidates will be defined with agronomic literature and local expert input.
 
+| Strategy | Concept | Illustrative rationale |
+| -------- | ------- | ---------------------- |
+| **Baseline: existing rotation** | Entered by the farmer, for example continuous maize or maize followed by fallow. | Everything is compared against what the farmer already does. |
+| **Strategy A: cereal-legume rotation** | Maize alternating with cowpea, groundnut or soybean. | Nitrogen fixation, reduced fertiliser need, pest-cycle interruption, extra income. |
+| **Strategy B: soil-cover emphasis** | Add cover crop or mulch phases to shorten bare-field periods, especially on sloping land. | Erosion reduction, organic matter, improved infiltration. |
+| **Strategy C: water-resilience emphasis** | Shift toward drought-tolerant crops or varieties and adjust planting windows to rainfall reliability. | Lower exposure to mid-season dry spells and heat stress. |
 
-## 📚 Data & References
+Perennial systems such as cocoa are handled as a separate land-use context, because rotation logic does not apply to them in the same way.
+
+### What every comparison card contains
+
+- **Why it was suggested** (the satellite signal and the agronomic reasoning)
+- **Evidence supporting it** (datasets, coverage, method, evidence tier)
+- **Expected benefits** (soil, water, erosion, pests, income, labour)
+- **Information gaps** (what we could not observe or verify)
+- **Risks needing local review** (disease, market access, seed availability, equipment, labour)
+- **Priority fit** (score against the farmer's chosen priorities)
+- **Ranking stability** (does this ranking hold under changed weights or climate scenarios?)
+- **Confidence level** and **who should validate it** (farmer, extension officer, agronomist)
+
+### Scoring criteria (initial, transparent, adjustable)
+
+Water-use efficiency · Drought and heat exposure · Soil health (N-fixation, organic matter) · Erosion protection · Pest and disease-cycle disruption · Income and market suitability · Labour and equipment fit · Seasonal-window fit.
+
+Every score is **traceable to its inputs**. Where an input is missing or weak, the criterion is marked low-confidence rather than silently filled in.
+
+---
+
+## 🛰️ Data sources
+
+### Core NASA datasets
+
+| Dataset | Used for | Approx. resolution | Key limitation we address |
+| ------- | -------- | ------------------ | ------------------------- |
+| **GPM IMERG** | Rainfall amounts, onset, dry spells, extreme-rain events | ~10 km, sub-daily | Satellite rainfall has errors; validate against local gauges where available. |
+| **SMAP** | Surface soil moisture, drought stress signals | ~9 to 36 km, every 2 to 3 days | Coarse, surface-only. We present it as regional context, not field measurement. |
+| **Landsat** | Vegetation vigour, bare ground, seasonal change | 30 m, ~16-day revisit | Cloud gaps in Ashanti. Mitigated with MODIS/VIIRS and gap-filling. |
+| **MODIS / VIIRS** | Frequent NDVI/EVI time series, phenology | 250 m to 1 km, daily to near-daily | Mixed pixels on smallholder farms. |
+| **NASA POWER** | Temperature, humidity, radiation, agroclimate | Coarse gridded | Regional, not farm-level. |
+| **SRTM** | Slope, runoff paths, erosion exposure | ~30 m | Static terrain only. |
+| **ECOSTRESS** | Land-surface temperature, evapotranspiration, heat-stress hotspots | ~70 m | Irregular, patchy coverage. Used as supporting evidence, not a continuous record. |
+| **GRACE / GRACE-FO** _(optional)_ | Long-term regional water-storage trends | Very coarse | Too coarse for farm decisions. Context only. |
+
+### Partner and non-NASA datasets (to fill gaps outside the US)
+
+| Dataset | Used for |
+| ------- | -------- |
+| **ISRIC SoilGrids** | Soil texture, organic carbon, pH (global gridded estimates) |
+| **FAO GAEZ** | Crop suitability and agro-ecological constraints |
+| **ERA5** (ECMWF) | Continuous climate time series, gap-filling where stations are sparse |
+| **CHIRPS** _(optional)_ | Long-record rainfall cross-check |
+| **Copernicus Sentinel-2** _(optional)_ | Finer vegetation detail (10 to 20 m) |
+| **Local knowledge** | Ghanaian agricultural research and extension sources, farmer interviews, local crop calendars |
+
+> Data availability, resolution, quality flags and product versions are recorded for every analysis and surfaced in the Evidence Passport. Where a dataset cannot support a claim at farm scale, the scale-honesty layer says so.
+
+---
+
+## 🧠 Machine learning and analytics
+
+Machine learning is used **where it is defensible** and baselines come first. We do not pretend to train supervised yield or rotation-success models without labelled field outcomes.
+
+| Capability | Approach | Role |
+| ---------- | -------- | ---- |
+| Unusual-season and anomaly detection | Isolation Forest, plus simple statistical baselines (z-scores, percentiles) | Flag abnormal rainfall, heat or vegetation behaviour |
+| Season-type and zone discovery | K-means (or comparable clustering) on harmonised features | Group seasons and areas with similar environmental behaviour |
+| Rainfall and temperature trends | Seasonal decomposition, trend tests, time-series baselines (e.g. ETS/ARIMA-family) | Describe change and variability. Not marketed as precise forecasts |
+| Environmental relationships | Regression with uncertainty reporting | Explore associations. Correlation is never presented as causation |
+| Crop and rotation assessment | **Transparent multi-criteria scoring** with agronomic knowledge and farmer priorities | The decision layer. Explainable by construction |
+| Robustness | Weight perturbation and scenario sampling | Rank-stability testing |
+
+**Evaluation commitments:** every model is compared against a simple baseline, evaluated with time-aware validation (no leakage from future seasons), and reported with its limits.
+
+---
+
+## 👩🏾‍🌾 Farmer-centred design
+
+- **Priority inputs:** water availability, income and market goals, soil-health goals, erosion concerns, labour and equipment limits, seed access.
+- **Plain-language outputs:** short summaries, icon-supported cards, glossary tooltips.
+- **Map exploration:** vegetation, soil moisture, rainfall and terrain layers with timelines and dataset overlays.
+- **Planned accessibility:** Twi-language summaries, printable one-page cards, low-bandwidth mode for extension-officer use.
+- **Reminders where judgment matters:** the interface highlights decisions that need local expertise, such as disease risk, market access and variety choice.
+- **Co-design:** farmer and agronomist feedback shapes criteria, language and workflow from the start.
+
+---
+
+## 🔍 Scientific integrity and explainability
+
+Every finding communicates:
+
+1. What was observed
+2. Which datasets were used
+3. The spatial and temporal coverage
+4. Which method was applied
+5. What the result suggests
+6. How uncertain it is
+7. What limitations apply
+8. What further evidence or expert validation is needed
+
+### Evidence tiers
+
+| Tier | Meaning |
+| ---- | ------- |
+| **Established science** | Well-supported agronomic or environmental knowledge |
+| **Data-derived finding** | Statistical result from the datasets, with stated uncertainty |
+| **Farmer-reported observation** | Valuable local evidence, not yet independently validated |
+| **Unverified hypothesis** | Plausible, flagged for testing |
+| **Expert-validated insight** | Confirmed by agricultural experts in context |
+
+Principles we hold to:
+
+- NASA observations are **not** ground truth for yield or rotation success.
+- Satellite pixels are **not** presented as exact farm-level measurements when resolution does not support it.
+- Correlation is **not** presented as causation.
+- Uncertainty is shown, never hidden.
+
+---
+
+## 🔁 Learning from field outcomes
+
+1. Analyse environmental and agricultural information.
+2. Present findings and candidate strategies.
+3. Farmers and experts evaluate the options.
+4. Record the decision and the reasoning behind it.
+5. Collect observations of the resulting outcomes.
+6. **Grade the evidence** for reliability and context (pests, management, rainfall, soil, seed quality).
+7. Incorporate only validated observations into future model and knowledge-base updates.
+
+Not every observation becomes a training label. Farmer experience is treated as valuable evidence even before scientific validation, and it is tagged accordingly.
+
+---
+
+## ✅ Challenge requirements map
+
+| Challenge expectation | How Field Shift addresses it |
+| --------------------- | ---------------------------- |
+| Use NASA Earth observations with local soil, crop and farmer-priority information | NASA datasets (IMERG, SMAP, Landsat, MODIS/VIIRS, POWER, SRTM, ECOSTRESS) plus SoilGrids, GAEZ, local knowledge and farmer inputs |
+| Compare at least three rotation strategies, including the existing one | Standard comparison cards: baseline plus alternative strategies |
+| Explain why each was suggested, supporting evidence, benefits, gaps and risks | Evidence Passport on every strategy |
+| Highlight bare-field periods and seasonal vulnerability | Vulnerability and Bare-Field Calendar |
+| Map strategies to farmer priorities (water, income, soil structure) | Priority-weighted transparent scoring |
+| Explain how the model handles uncertainty and where local expertise is needed | Confidence levels, rank-stability testing, required-local-review flags |
+| Harmonise datasets of different resolutions | Common analysis grid with documented resampling and a scale-honesty layer |
+| Interactive maps, timelines, overlays and scenario sliders | Planned map explorer with layers, timeline and rainfall/temperature sliders |
+| Explain scientific terms and satellite versus ground measurements | Built-in glossary and data-limits explainers |
+| Support, not replace, local expertise | Design principle, repeated reminders in the interface |
+
+---
+
+## 📖 Concepts explained simply
+
+| Term | Plain meaning |
+| ---- | ------------- |
+| **NDVI** | A satellite "greenness" score. Higher usually means denser, healthier vegetation. Low values in a growing season can signal stress or bare ground. |
+| **Evapotranspiration (ET)** | Water leaving the field through soil evaporation and plant transpiration. High ET with low rainfall means water stress. |
+| **Soil moisture anomaly** | How much wetter or drier the soil is than normal for that time of year. |
+| **Dry spell** | A run of days with little rain during the growing season, often more damaging than low seasonal totals. |
+| **Rainfall reliability** | How consistently the rains arrive in the expected window across years. |
+| **Bare-field period** | Time when no crop or cover protects the soil, raising erosion and moisture-loss risk. |
+| **Nitrogen-fixing crop** | A legume that works with soil bacteria to add nitrogen, which can reduce fertiliser needs. |
+| **Satellite vs ground data** | Satellites see wide areas consistently but at coarse resolution and with indirect measurements. Ground measurements are precise but sparse. Field Shift is designed to combine them. |
+
+---
+
+## 🏗️ Architecture
+
+Field Shift follows a modular design that separates **data acquisition, processing, analytics, agronomic knowledge, decision support and feedback**.
+
+| Layer | Responsibility |
+| ----- | -------------- |
+| Data acquisition | Fetch and version NASA and partner datasets, record provenance |
+| Quality and harmonisation | Cloud masking, QA flags, gap-filling, resampling to a common grid |
+| Feature engineering | Anomalies, dry spells, phenology, heat-stress days, terrain exposure |
+| Analytics | Anomaly detection, clustering, trends, regression |
+| Knowledge base | Crop requirements, rotation principles, regional calendars (version-controlled, sourced) |
+| Decision layer | Multi-criteria scoring, priority weights, rank-stability testing |
+| Evidence layer | Evidence Passport generation, uncertainty and gap reporting |
+| Interface | Maps, calendar, scenario sliders, comparison cards, glossary |
+| Feedback | Decision and outcome logging, evidence grading |
+
+> **Technology stack: to be finalised.** The architecture above is technology-neutral. Specific tools will be selected and documented once the MVP scope is agreed.
+
+---
+
+## 🚧 Project status and roadmap
+
+Field Shift is under active development for the NASA Space Apps Challenge 2026. **Capabilities below are planned unless marked otherwise.** Nothing here should be read as completed or scientifically validated until it is demonstrated.
+
+| Phase | Goal | Status |
+| ----- | ---- | ------ |
+| 1. Foundations | Study-area definition, dataset access, provenance and QA pipeline | 🔲 Planned |
+| 2. Environmental intelligence | Harmonised features, anomaly detection, season-type clustering, trend analysis | 🔲 Planned |
+| 3. Knowledge base | Sourced crop and rotation parameters for Ashanti candidates | 🔲 Planned |
+| 4. Decision layer | Multi-criteria scoring, priority weights, rank-stability testing | 🔲 Planned |
+| 5. Interface | Calendar, map explorer, comparison cards, scenario sliders | 🔲 Planned |
+| 6. Evidence and explainability | Evidence Passports, scale-honesty layer, glossary | 🔲 Planned |
+| 7. Validation and demo | Expert and farmer review, demo scenario, documented limitations | 🔲 Planned |
+
+### Planned demo story
+
+1. A farmer in an Ashanti location enters their current rotation and priorities (for example water conservation and income).
+2. The **Vulnerability Calendar** shows when their fields are bare or climate-exposed.
+3. Field Shift compares the existing rotation with alternatives, with scores, evidence, gaps and risks.
+4. The farmer adjusts a rainfall slider or replays a dry analog season. **Rank-stability** shows which strategy holds up.
+5. The tool ends with a list of what a local agronomist must verify before acting.
+
+---
+
+## ⚠️ Limitations
+
+- Satellite observations are indirect and often coarse relative to smallholder farms.
+- Cloud cover reduces optical data availability in the region.
+- Without labelled field outcomes, we cannot claim validated yield or rotation-success prediction.
+- Soil estimates from global products are approximations and need local soil testing.
+- Candidate strategies are hypotheses until reviewed by local agricultural experts.
+- Market, labour, disease and seed-availability factors depend on local conditions that satellites cannot observe.
+
+---
+
+## 🔐 Responsible data use
+
+- Farmer-provided data remains the farmer's. It is used only with consent and for stated purposes.
+- Locations are handled at the lowest precision that serves the purpose.
+- Datasets retain their original licences and attribution requirements.
+- The tool presents options and evidence. It does not issue commands, and it does not guarantee outcomes.
+
+---
+
+## 📚 Data and references
 
 - [NASA Earthdata](https://www.earthdata.nasa.gov/)
 - [NASA POWER](https://power.larc.nasa.gov/)
 - [NASA Global Precipitation Measurement (GPM)](https://gpm.nasa.gov/data)
 - [NASA Soil Moisture Active Passive (SMAP)](https://smap.jpl.nasa.gov/)
 - [NASA Landsat](https://landsat.gsfc.nasa.gov/)
-
-## 📄 License
-
-License and attribution details will be specified as the project develops. NASA datasets retain their respective usage and attribution requirements.
+- [Challenge page: Adapting Farms with NASA Data](https://www.spaceappschallenge.org/2026/challenges/adapting-farms-with-nasa-data/)
+- ISRIC SoilGrids, FAO GAEZ and ECMWF ERA5 (see each provider's site for access and licence terms)
 
 ---
 
-**Field Shift — Turning Earth observations into agricultural intelligence.**
+## 👥 Team and license
+
+**Team:** _add team name and members_
+
+**License:** _to be specified_. NASA and partner datasets retain their own usage and attribution requirements.
+
+---
+
+**Field Shift: turning Earth observations into agricultural decisions farmers can trust.**

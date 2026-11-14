@@ -1,0 +1,46 @@
+{
+  "description": "Deterministic weighted-sum check shared by the Python and TypeScript implementations. Illustrative numbers only, not real agronomic scores.",
+  "strategies": [
+    "Existing rotation",
+    "Strategy A",
+    "Strategy B"
+  ],
+  "criteria": [
+    "Water efficiency",
+    "Soil health",
+    "Erosion protection",
+    "Income and market"
+  ],
+  "scores": [
+    [
+      0.55,
+      0.4,
+      0.5,
+      0.3
+    ],
+    [
+      0.7,
+      0.65,
+      0.6,
+      0.55
+    ],
+    [
+      0.6,
+      0.8,
+      0.75,
+      0.45
+    ]
+  ],
+  "weights": [
+    0.4,
+    0.3,
+    0.2,
+    0.1
+  ],
+  "expected_base_scores": [
+    0.4700000000000001,
+    0.6500000000000001,
+    0.675
+  ],
+  "parity_rule": "Compare base scores to 1e-9. Compare Monte Carlo output only within a statistical tolerance, since random generators differ between languages."
+}

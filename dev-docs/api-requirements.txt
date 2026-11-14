@@ -1,0 +1,11 @@
+# Lean runtime dependencies for the optional decision service (Vercel project, root directory: apps/api).
+# Keep this file small: Python functions on Vercel include everything installed, with no tree-shaking.
+# Do NOT add rasterio, geopandas, xarray, dask, zarr, scikit-learn or scipy here.
+# After the first successful deploy, pin exact versions with `pip freeze` for reproducible builds.
+fastapi>=0.117.1
+pydantic>=2.0
+numpy>=1.26
+
+# Only if the crop-model surrogate (M5) is served from this service. Measure the bundle size first.
+# lightgbm>=4.0
+# joblib>=1.3
