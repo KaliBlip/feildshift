@@ -6,6 +6,65 @@ import type {
 export interface LivePilotCellPayload {
   strategies: RotationStrategySpec[];
   passports: EvidencePassportEntry[];
+  syncedAt?: string;
+}
+
+const MEMORY_CELL_CACHE = new Map<string, LivePilotCellPayload>();
+const STORAGE_PREFIX = 'fieldshift.pilot.cell.';
+
+function getOptionalWebStorage(): Storage | null {
+  try {
+    const candidate = (globalThis as { localStorage?: Storage }).localStorage;
+    return candidate ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function cachePilotCellPayload(
+  cellId: string,
+  payload: LivePilotCellPayload,
+): void {
+  const stamped: LivePilotCellPayload = {
+    ...payload,
+    syncedAt: payload.syncedAt ?? new Date().toISOString(),
+  };
+  MEMORY_CELL_CACHE.set(cellId, stamped);
+  const storage = getOptionalWebStorage();
+  if (storage) {
+    try {
+      storage.setItem(`${STORAGE_PREFIX}${cellId}`, JSON.stringify(stamped));
+    } catch {
+      // Ignore quota / private-browsing storage errors cleanly
+    }
+  }
+}
+
+export function readCachedPilotPayload(
+  cellId: string,
+): LivePilotCellPayload | null {
+  const inMem = MEMORY_CELL_CACHE.get(cellId);
+  if (inMem) {
+    return inMem;
+  }
+  const storage = getOptionalWebStorage();
+  if (!storage) {
+    return null;
+  }
+  try {
+    const raw = storage.getItem(`${STORAGE_PREFIX}${cellId}`);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as LivePilotCellPayload;
+    if (Array.isArray(parsed.strategies) && parsed.strategies.length > 0) {
+      MEMORY_CELL_CACHE.set(cellId, parsed);
+      return parsed;
+    }
+  } catch {
+    // Ignore malformed cache entries
+  }
+  return null;
 }
 
 interface SupabaseStrategyRow {
@@ -70,7 +129,10 @@ function formatDatasetsUsed(raw: unknown): string[] {
     }
     if (item && typeof item === 'object') {
       const rec = item as Record<string, unknown>;
-      const product = typeof rec.product === 'string' ? rec.product : String(rec.dataset_key ?? 'Dataset');
+      const product =
+        typeof rec.product === 'string'
+          ? rec.product
+          : String(rec.dataset_key ?? 'Dataset');
       const mode = typeof rec.retrieval_mode === 'string' ? rec.retrieval_mode : 'pilot';
       return `${product} (${mode})`;
     }
@@ -95,8 +157,8 @@ function formatCoverage(raw: unknown, cellId: string): string {
 /**
  * Fetch precomputed Phase 3 strategy scores and Evidence Passports from Supabase
  * PostgREST when EXPO_PUBLIC_SUPABASE_URL / ANON_KEY are configured.
- * Returns null cleanly when unconfigured, offline, or empty so offline Ashanti
- * fixtures continue working seamlessly.
+ * Persists successful results in the offline cell cache and returns null cleanly
+ * when unconfigured or offline.
  */
 export async function fetchLivePilotStrategies(
   cellId: string,
@@ -169,7 +231,13 @@ export async function fetchLivePilotStrategies(
         }))
       : [];
 
-    return { strategies, passports };
+    const payload: LivePilotCellPayload = {
+      strategies,
+      passports,
+      syncedAt: new Date().toISOString(),
+    };
+    cachePilotCellPayload(cellId, payload);
+    return payload;
   } catch {
     return null;
   }

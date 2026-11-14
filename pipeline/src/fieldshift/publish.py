@@ -22,6 +22,7 @@ from fieldshift.evidence import generate_evidence_passports
 from fieldshift.features import estimate_hargreaves_et0, extract_season_features
 from fieldshift.ingest import (
     NON_GLOBAL_US_BASELINES,
+    fetch_earthdata_ashanti_snapshot,
     fetch_nasa_power_daily,
     fetch_soilgrids_point,
     generate_ashanti_pilot_raw_daily,
@@ -33,6 +34,130 @@ from fieldshift.models import (
     retrieve_analog_seasons,
 )
 from fieldshift.qc import build_dekad_cube
+
+DEFAULT_PRIORITY_CELL_IDS: tuple[str, ...] = (
+    "ASH_R05_C05",
+    "ASH_R04_C04",
+    "ASH_R06_C06",
+    "ASH_R05_C04",
+    "ASH_R04_C05",
+    "ASH_R06_C05",
+    "ASH_R05_C06",
+    "ASH_R04_C06",
+    "ASH_R06_C04",
+)
+
+PILOT_CELL_SQL_COLUMNS: tuple[str, ...] = (
+    "cell_id",
+    "region_name",
+    "row_idx",
+    "col_idx",
+    "centre_lat",
+    "centre_lon",
+    "geom",
+    "centroid",
+    "elevation_m",
+    "slope_pct",
+    "soil_texture",
+    "soil_organic_carbon_g_kg",
+    "soil_ph",
+    "native_resolutions_km",
+)
+
+DEKAD_TIMESERIES_SQL_COLUMNS: tuple[str, ...] = (
+    "cell_id",
+    "year",
+    "dekad",
+    "start_date",
+    "end_date",
+    "rain_imerg_mm",
+    "rain_era5_mm",
+    "smap_sm_m3m3",
+    "smap_anomaly_z",
+    "ndvi_raw",
+    "ndvi_smooth",
+    "optical_valid_frac",
+    "lst_max_c",
+    "et0_mm",
+    "water_balance_mm",
+    "bare_field_flag",
+    "qa_tier",
+    "provenance_id",
+)
+
+SEASON_FEATURES_SQL_COLUMNS: tuple[str, ...] = (
+    "cell_id",
+    "year",
+    "season",
+    "onset_dekad",
+    "cessation_dekad",
+    "total_rain_mm",
+    "rain_cv",
+    "longest_dry_spell_days",
+    "heavy_rain_days",
+    "heat_stress_days",
+    "mean_sm_anomaly_z",
+    "ndvi_peak",
+    "bare_period_fraction",
+    "erosion_exposure_index",
+    "anomaly_score_m1",
+    "is_anomalous_season",
+    "cluster_id_m2",
+    "cluster_label_m2",
+    "trend_sen_slope_mm_yr",
+)
+
+EVIDENCE_PASSPORT_SQL_COLUMNS: tuple[str, ...] = (
+    "passport_id",
+    "cell_id",
+    "strategy_code",
+    "evidence_tier",
+    "observation_summary",
+    "datasets_used",
+    "spatial_temporal_coverage",
+    "method_applied",
+    "key_finding",
+    "uncertainty_summary",
+    "scale_honesty_note",
+    "information_gaps",
+    "required_local_review",
+    "validator_roles",
+)
+
+STRATEGY_SCORE_SQL_COLUMNS: tuple[str, ...] = (
+    "cell_id",
+    "strategy_code",
+    "strategy_name",
+    "rotation_sequence",
+    "is_baseline",
+    "criteria",
+    "criterion_scores",
+    "score_uncertainties",
+    "default_weights",
+    "default_base_score",
+    "default_prob_first",
+    "default_mean_rank",
+    "expected_benefits",
+    "information_gaps",
+    "risks_needing_review",
+    "passport_id",
+)
+
+
+def _bbox_to_ewkt_polygon(bbox: Sequence[float]) -> str:
+    min_lon, min_lat, max_lon, max_lat = [float(v) for v in bbox]
+    return (
+        f"SRID=4326;POLYGON(({min_lon} {min_lat}, {max_lon} {min_lat}, "
+        f"{max_lon} {max_lat}, {min_lon} {max_lat}, {min_lon} {min_lat}))"
+    )
+
+
+def _point_to_ewkt(lon: float, lat: float) -> str:
+    return f"SRID=4326;POINT({float(lon)} {float(lat)})"
+
+
+def _project_rows(rows: list[dict[str, Any]], columns: tuple[str, ...]) -> list[dict[str, Any]]:
+    return [{col: row.get(col) for col in columns if col in row} for row in rows]
 
 
 def _sanitize_json_value(obj: Any) -> Any:
@@ -123,12 +248,29 @@ def _merge_power_rain_and_temp(daily_df: pd.DataFrame, power_df: pd.DataFrame) -
     return joined.drop(columns=drop_cols)
 
 
+def _select_cells(
+    all_cells: list[dict[str, Any]],
+    cell_limit: int | None,
+    cell_ids: Sequence[str] | None,
+) -> list[dict[str, Any]]:
+    by_id = {str(cell["cell_id"]): cell for cell in all_cells}
+    if cell_ids is not None:
+        ordered = [by_id[cid] for cid in cell_ids if cid in by_id]
+    else:
+        priority = [by_id[cid] for cid in DEFAULT_PRIORITY_CELL_IDS if cid in by_id]
+        priority_set = {str(cell["cell_id"]) for cell in priority}
+        rest = [cell for cell in all_cells if str(cell["cell_id"]) not in priority_set]
+        ordered = priority + rest
+    return ordered[:cell_limit] if cell_limit is not None else ordered
+
+
 def build_pilot_bundle(
     cfg: PilotConfig | None = None,
     years: Sequence[int] = (2022, 2023, 2024, 2025),
     farm_area_ha: float = 2.0,
-    cell_limit: int | None = 3,
+    cell_limit: int | None = 5,
     fetch_live_baseline: bool = False,
+    cell_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Run the end-to-end Ashanti pilot pipeline and assemble Supabase-ready JSON tables."""
     config = cfg or load_pilot_config()
@@ -136,9 +278,19 @@ def build_pilot_bundle(
     rotations_df = load_rotations_table()
 
     all_cells = generate_pilot_cells(config)
-    selected_cells = all_cells[:cell_limit] if cell_limit is not None else all_cells
+    selected_cells = _select_cells(all_cells, cell_limit=cell_limit, cell_ids=cell_ids)
     start_yyyymmdd = f"{min(years)}0101"
     end_yyyymmdd = f"{max(years)}1231"
+
+    earthdata_snapshot: dict[str, Any] | None = None
+    earthdata_prov: list[dict[str, Any]] = []
+    if fetch_live_baseline:
+        try:
+            snap, ed_records = fetch_earthdata_ashanti_snapshot()
+            earthdata_snapshot = snap
+            earthdata_prov = [asdict(rec) for rec in ed_records]
+        except Exception:
+            earthdata_snapshot = None
 
     pilot_cell_rows: list[dict[str, Any]] = []
     daily_frames_by_cell: dict[str, pd.DataFrame] = {}
@@ -147,6 +299,7 @@ def build_pilot_bundle(
     phenology_rows: list[dict[str, Any]] = []
     soil_baselines: dict[str, dict[str, Any]] = {}
     provenance_by_cell: dict[str, list[dict[str, Any]]] = {}
+    power_cache: dict[tuple[float, float], tuple[pd.DataFrame | None, dict[str, Any] | None]] = {}
 
     scale_assessment = evaluate_scale_honesty(farm_area_ha, config.dataset_resolutions_km)
     scale_honesty_payload = {
@@ -157,23 +310,50 @@ def build_pilot_bundle(
 
     for idx, cell in enumerate(selected_cells):
         cell_id = str(cell["cell_id"])
-        slope_pct = round(3.8 + 1.4 * idx, 2)
+        slope_pct = round(3.8 + 1.1 * idx, 2)
 
         power_df: pd.DataFrame | None = None
         soil_summary: dict[str, Any] | None = None
-        live_prov: list[dict[str, Any]] = []
+        live_prov: list[dict[str, Any]] = list(earthdata_prov)
         if fetch_live_baseline:
-            power_df, soil_summary, live_prov = _fetch_optional_live_cell_baselines(
-                lat=float(cell["centre_lat"]),
-                lon=float(cell["centre_lon"]),
-                start_date=start_yyyymmdd,
-                end_date=end_yyyymmdd,
-            )
+            # NASA POWER has a ~0.5 deg grid; cache per coarse 0.5-deg key across pilot cells
+            p_key = (round(float(cell["centre_lat"]) * 2.0) / 2.0, round(float(cell["centre_lon"]) * 2.0) / 2.0)
+            if p_key in power_cache:
+                power_df, cached_p_rec = power_cache[p_key]
+                if cached_p_rec is not None:
+                    live_prov.append(cached_p_rec)
+                try:
+                    s_sum, s_rec = fetch_soilgrids_point(
+                        lat=float(cell["centre_lat"]),
+                        lon=float(cell["centre_lon"]),
+                    )
+                    soil_summary = s_sum
+                    live_prov.append(asdict(s_rec))
+                except Exception:
+                    soil_summary = None
+            else:
+                power_df, soil_summary, cell_live_prov = _fetch_optional_live_cell_baselines(
+                    lat=float(cell["centre_lat"]),
+                    lon=float(cell["centre_lon"]),
+                    start_date=start_yyyymmdd,
+                    end_date=end_yyyymmdd,
+                )
+                cached_power_rec = next(
+                    (rec for rec in cell_live_prov if rec.get("dataset_key") == "nasa_power"),
+                    None,
+                )
+                power_cache[p_key] = (power_df, cached_power_rec)
+                live_prov.extend(cell_live_prov)
 
         if soil_summary:
             soil_baselines[cell_id] = soil_summary
 
         year_dailies: list[pd.DataFrame] = []
+        live_keys = {
+            rec.get("dataset_key")
+            for rec in live_prov
+            if rec.get("retrieval_mode") == "live"
+        }
         cell_prov: list[dict[str, Any]] = list(live_prov)
         for yr in years:
             df_yr, manifest = generate_ashanti_pilot_raw_daily(
@@ -194,15 +374,10 @@ def build_pilot_bundle(
                 lat_deg=float(cell["centre_lat"]),
             )
             year_dailies.append(df_yr)
-            if not cell_prov or yr == years[0]:
+            if yr == years[0]:
                 for rec in manifest.records:
                     d_rec = asdict(rec)
-                    # Avoid listing synthetic baseline entries for the same dataset already fetched live
-                    if not any(
-                        existing.get("dataset_key") == d_rec["dataset_key"]
-                        and existing.get("retrieval_mode") == "live"
-                        for existing in live_prov
-                    ):
+                    if d_rec["dataset_key"] not in live_keys:
                         cell_prov.append(d_rec)
 
         daily_all = pd.concat(year_dailies, ignore_index=True)
@@ -212,7 +387,7 @@ def build_pilot_bundle(
         daily_frames_by_cell[cell_id] = daily_all
         provenance_by_cell[cell_id] = cell_prov
 
-        cube = build_dekad_cube(daily_all)
+        cube = build_dekad_cube(daily_all, provenance_id=f"{cell_id}_phase3_live" if fetch_live_baseline else f"{cell_id}_pilot")
         cube_frames.append(cube)
 
         pheno = extract_ndvi_phenology(cube, cfg=config)
@@ -231,8 +406,13 @@ def build_pilot_bundle(
                 "centre_lat": float(cell["centre_lat"]),
                 "centre_lon": float(cell["centre_lon"]),
                 "bbox": list(cell["bbox"]),
+                "geom": _bbox_to_ewkt_polygon(cell["bbox"]),
+                "centroid": _point_to_ewkt(float(cell["centre_lon"]), float(cell["centre_lat"])),
+                "elevation_m": round(215.0 + 18.0 * idx, 1),
                 "slope_pct": slope_pct,
-                "soil_texture": soil_summary.get("soil_texture") if soil_summary else "sandy_clay_loam",
+                "soil_texture": soil_summary.get("soil_texture") if soil_summary else "Sandy clay loam",
+                "soil_organic_carbon_g_kg": soil_summary.get("soil_organic_carbon_g_kg") if soil_summary else 14.0,
+                "soil_ph": soil_summary.get("soil_ph") if soil_summary else 5.8,
                 "native_resolutions_km": cell["native_resolutions_km"],
             }
         )
@@ -293,6 +473,7 @@ def build_pilot_bundle(
         "non_global_us_baselines": NON_GLOBAL_US_BASELINES,
         "pilot_cells": pilot_cell_rows,
         "live_soil_baselines": soil_baselines,
+        "earthdata_snapshot": earthdata_snapshot,
         "dekad_timeseries": cube_all.to_dict(orient="records") if not cube_all.empty else [],
         "season_features": enriched_features.to_dict(orient="records") if not enriched_features.empty else [],
         "phenology_summary": phenology_rows,
@@ -319,9 +500,6 @@ def publish_bundle_to_supabase(
     service_key: str | None = None,
 ) -> dict[str, Any]:
     """Upsert pilot tables into Supabase (or inspect counts cleanly in dry_run)."""
-    url = supabase_url or os.environ.get("SUPABASE_URL", "")
-    key = service_key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-
     summary_counts = {
         "pilot_cells": len(bundle.get("pilot_cells", [])),
         "dekad_timeseries": len(bundle.get("dekad_timeseries", [])),
@@ -333,6 +511,17 @@ def publish_bundle_to_supabase(
     if dry_run:
         return {"status": "dry_run", "tables": summary_counts}
 
+    if supabase_url is None and service_key is None:
+        try:
+            from dotenv import load_dotenv
+
+            load_dotenv(".env.local", override=False)
+        except ImportError:
+            pass
+
+    url = os.environ.get("SUPABASE_URL", "") if supabase_url is None else supabase_url
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "") if service_key is None else service_key
+
     if not url or not key:
         return {"status": "skipped_no_credentials", "tables": summary_counts}
 
@@ -340,22 +529,28 @@ def publish_bundle_to_supabase(
 
     client = create_client(url, key)
     if bundle.get("pilot_cells"):
-        client.table("pilot_cells").upsert(bundle["pilot_cells"], on_conflict="cell_id").execute()
+        cells_payload = _project_rows(bundle["pilot_cells"], PILOT_CELL_SQL_COLUMNS)
+        client.table("pilot_cells").upsert(cells_payload, on_conflict="cell_id").execute()
     if bundle.get("evidence_passports"):
+        passports_payload = _project_rows(bundle["evidence_passports"], EVIDENCE_PASSPORT_SQL_COLUMNS)
         client.table("evidence_passports").upsert(
-            bundle["evidence_passports"], on_conflict="passport_id"
+            passports_payload, on_conflict="passport_id"
         ).execute()
     if bundle.get("strategy_scores"):
+        strategies_payload = _project_rows(bundle["strategy_scores"], STRATEGY_SCORE_SQL_COLUMNS)
         client.table("strategy_scores").upsert(
-            bundle["strategy_scores"], on_conflict="cell_id,strategy_code"
+            strategies_payload, on_conflict="cell_id,strategy_code"
         ).execute()
     if bundle.get("season_features"):
+        features_payload = _project_rows(bundle["season_features"], SEASON_FEATURES_SQL_COLUMNS)
         client.table("season_features").upsert(
-            bundle["season_features"], on_conflict="cell_id,year,season"
+            features_payload, on_conflict="cell_id,year,season"
         ).execute()
     if bundle.get("dekad_timeseries"):
-        client.table("dekad_timeseries").upsert(
-            bundle["dekad_timeseries"], on_conflict="cell_id,year,dekad"
-        ).execute()
+        dekad_payload = _project_rows(bundle["dekad_timeseries"], DEKAD_TIMESERIES_SQL_COLUMNS)
+        for start in range(0, len(dekad_payload), 500):
+            client.table("dekad_timeseries").upsert(
+                dekad_payload[start : start + 500], on_conflict="cell_id,year,dekad"
+            ).execute()
 
     return {"status": "published", "tables": summary_counts}

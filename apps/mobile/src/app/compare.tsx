@@ -11,7 +11,6 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import {
   PRIORITY_PRESETS,
-  ROTATION_STRATEGIES,
   SCORING_CRITERIA,
 } from '@/constants/pilot-data';
 import {
@@ -24,33 +23,63 @@ import {
 import { usePilotState } from '@/hooks/use-pilot-state';
 import { useTheme } from '@/hooks/use-theme';
 import { baseScores, rankProbabilities } from '@/lib/scoring';
+import {
+  applyClimateStressToStrategies,
+  CLIMATE_STRESS_SCENARIOS,
+  type ClimateStressId,
+} from '@/lib/stress';
 
 const PRESET_PILL_OPTIONS = PRIORITY_PRESETS.map((p) => ({
   id: p.id,
   label: p.label.replace(' & Erosion', '').replace(' Focus', ''),
 }));
 
+const STRESS_PILL_OPTIONS = CLIMATE_STRESS_SCENARIOS.map((s) => ({
+  id: s.id,
+  label: s.shortLabel,
+}));
+
 export default function CompareScreen() {
   const theme = useTheme();
-  const { selectedCell, weights, setWeightAt, applyPreset } = usePilotState();
+  const {
+    selectedCell,
+    weights,
+    setWeightAt,
+    applyPreset,
+    strategies,
+    dataSourceMode,
+  } = usePilotState();
 
   const [activePresetId, setActivePresetId] = useState<string>(
     PRIORITY_PRESETS[0].id,
   );
+  const [stressId, setStressId] = useState<ClimateStressId>('baseline');
   const [showPriorityEditor, setShowPriorityEditor] = useState(false);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
 
-  const scoreMatrix = ROTATION_STRATEGIES.map((s) => [...s.criterionScores]);
+  const baselineMatrix = strategies.map((s) => [...s.criterionScores]);
+  const baselineScores = baseScores(baselineMatrix, [...weights]);
+  const scoreMatrix = applyClimateStressToStrategies(strategies, stressId);
   const computedScores = baseScores(scoreMatrix, [...weights]);
   const stability = rankProbabilities(scoreMatrix, [...weights], {
     runs: 2000,
     seed: 42,
   });
 
+  const activeScenario =
+    CLIMATE_STRESS_SCENARIOS.find((item) => item.id === stressId) ??
+    CLIMATE_STRESS_SCENARIOS[0];
+  const sourceBadge =
+    dataSourceMode === 'supabase'
+      ? 'Live Supabase'
+      : dataSourceMode === 'cached'
+        ? 'Offline Cache'
+        : 'Ashanti Fixture';
+
   const weightSum = weights.reduce((acc, w) => acc + w, 0);
-  const rankedIndices = ROTATION_STRATEGIES.map((_, idx) => idx).sort(
-    (a, b) => computedScores[b] - computedScores[a],
-  );
+  const rankedIndices = strategies
+    .map((_, idx) => idx)
+    .sort((a, b) => computedScores[b] - computedScores[a]);
 
   const handleSelectPreset = (id: string) => {
     const preset = PRIORITY_PRESETS.find((p) => p.id === id);
@@ -65,8 +94,8 @@ export default function CompareScreen() {
       edges={['top']}
       style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <TopBarHeader
-        title={`My Strategies (${ROTATION_STRATEGIES.length})`}
-        subtitle={`${selectedCell.cellId} · 2,000 Monte Carlo runs`}
+        title={`My Strategies (${strategies.length})`}
+        subtitle={`${selectedCell.cellId} · ${sourceBadge} · ${activeScenario.shortLabel}`}
         rightActions={[
           {
             id: 'preset-filter',
@@ -101,6 +130,22 @@ export default function CompareScreen() {
           selectedId={activePresetId}
           onSelect={handleSelectPreset}
         />
+
+        <View style={styles.stressSection}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            Climate Stress &amp; Analog Replay
+          </ThemedText>
+          <SegmentedPillBar
+            options={STRESS_PILL_OPTIONS}
+            selectedId={stressId}
+            onSelect={(id) => setStressId(id as ClimateStressId)}
+          />
+          {stressId !== 'baseline' && (
+            <ThemedText type="small" themeColor="textMuted">
+              Simulating: {activeScenario.label}
+            </ThemedText>
+          )}
+        </View>
 
         {showPriorityEditor && (
           <View
@@ -154,8 +199,11 @@ export default function CompareScreen() {
         )}
 
         {rankedIndices.map((sIdx, rankPos) => {
-          const strategy = ROTATION_STRATEGIES[sIdx];
+          const strategy = strategies[sIdx];
           const scorePct = Math.round(computedScores[sIdx] * 100);
+          const deltaPct = Math.round(
+            (computedScores[sIdx] - baselineScores[sIdx]) * 100,
+          );
           const probPct = Math.round(stability.probabilityFirst[sIdx] * 100);
           const isExpanded = expandedCode === strategy.code;
 
@@ -202,6 +250,9 @@ export default function CompareScreen() {
                   </View>
                   <ThemedText type="small" themeColor="textMuted">
                     Mean rank {stability.meanRank[sIdx].toFixed(2)}
+                    {stressId !== 'baseline'
+                      ? ` · ${deltaPct >= 0 ? `+${deltaPct}` : deltaPct}% vs base`
+                      : ''}
                   </ThemedText>
                 </View>
               </View>
@@ -240,7 +291,7 @@ export default function CompareScreen() {
                         ]}>
                         <ThemedText type="code" themeColor="textSecondary">
                           {criterion.split(' ')[0]}:{' '}
-                          {strategy.criterionScores[cIdx].toFixed(2)}
+                          {scoreMatrix[sIdx][cIdx].toFixed(2)}
                         </ThemedText>
                       </View>
                     ))}
@@ -284,6 +335,9 @@ export default function CompareScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
+  stressSection: {
+    gap: 6,
+  },
   scrollContent: {
     width: '100%',
     maxWidth: MaxContentWidth,

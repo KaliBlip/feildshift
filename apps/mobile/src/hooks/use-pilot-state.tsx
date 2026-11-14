@@ -17,9 +17,13 @@ import {
   type PilotCellSummary,
   type RotationStrategySpec,
 } from '@/constants/pilot-data';
-import { fetchLivePilotStrategies } from '@/lib/supabase';
+import {
+  fetchLivePilotStrategies,
+  readCachedPilotPayload,
+} from '@/lib/supabase';
 
 export type PriorityWeightsTuple = [number, number, number, number];
+export type PilotDataSourceMode = 'fixture' | 'supabase' | 'cached';
 
 interface PilotStateValue {
   cells: PilotCellSummary[];
@@ -32,7 +36,8 @@ interface PilotStateValue {
   applyPreset: (weights: PriorityWeightsTuple) => void;
   strategies: RotationStrategySpec[];
   passports: EvidencePassportEntry[];
-  dataSourceMode: 'fixture' | 'supabase';
+  dataSourceMode: PilotDataSourceMode;
+  lastSyncedAt: string | null;
   refreshLivePilotData: () => Promise<void>;
 }
 
@@ -50,22 +55,42 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
     useState<RotationStrategySpec[]>(ROTATION_STRATEGIES);
   const [passports, setPassports] =
     useState<EvidencePassportEntry[]>(EVIDENCE_PASSPORTS);
-  const [dataSourceMode, setDataSourceMode] = useState<'fixture' | 'supabase'>('fixture');
+  const [dataSourceMode, setDataSourceMode] =
+    useState<PilotDataSourceMode>('fixture');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
-  const refreshLivePilotData = useCallback(async () => {
-    const live = await fetchLivePilotStrategies(selectedCellId);
+  const applyHydratedOrCached = useCallback((cellId: string, live: Awaited<ReturnType<typeof fetchLivePilotStrategies>>) => {
     if (live && live.strategies.length > 0) {
       setStrategies(live.strategies);
       if (live.passports.length > 0) {
         setPassports(live.passports);
       }
       setDataSourceMode('supabase');
-    } else {
-      setStrategies(ROTATION_STRATEGIES);
-      setPassports(EVIDENCE_PASSPORTS);
-      setDataSourceMode('fixture');
+      setLastSyncedAt(live.syncedAt ?? null);
+      return;
     }
-  }, [selectedCellId]);
+
+    const cached = readCachedPilotPayload(cellId);
+    if (cached && cached.strategies.length > 0) {
+      setStrategies(cached.strategies);
+      if (cached.passports.length > 0) {
+        setPassports(cached.passports);
+      }
+      setDataSourceMode('cached');
+      setLastSyncedAt(cached.syncedAt ?? null);
+      return;
+    }
+
+    setStrategies(ROTATION_STRATEGIES);
+    setPassports(EVIDENCE_PASSPORTS);
+    setDataSourceMode('fixture');
+    setLastSyncedAt(null);
+  }, []);
+
+  const refreshLivePilotData = useCallback(async () => {
+    const live = await fetchLivePilotStrategies(selectedCellId);
+    applyHydratedOrCached(selectedCellId, live);
+  }, [applyHydratedOrCached, selectedCellId]);
 
   useEffect(() => {
     let active = true;
@@ -74,22 +99,12 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
       if (!active) {
         return;
       }
-      if (live && live.strategies.length > 0) {
-        setStrategies(live.strategies);
-        if (live.passports.length > 0) {
-          setPassports(live.passports);
-        }
-        setDataSourceMode('supabase');
-      } else {
-        setStrategies(ROTATION_STRATEGIES);
-        setPassports(EVIDENCE_PASSPORTS);
-        setDataSourceMode('fixture');
-      }
+      applyHydratedOrCached(selectedCellId, live);
     })();
     return () => {
       active = false;
     };
-  }, [selectedCellId]);
+  }, [applyHydratedOrCached, selectedCellId]);
 
   const selectedCell =
     ASHANTI_PILOT_CELLS.find((cell) => cell.cellId === selectedCellId) ??
@@ -126,6 +141,7 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
         strategies,
         passports,
         dataSourceMode,
+        lastSyncedAt,
         refreshLivePilotData,
       }}>
       {children}

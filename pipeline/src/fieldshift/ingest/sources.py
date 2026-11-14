@@ -349,3 +349,90 @@ def generate_ashanti_pilot_raw_daily(
         )
 
     return df, manifest
+
+
+def fetch_earthdata_ashanti_snapshot(
+    bbox: tuple[float, float, float, float] = (-1.70, 6.60, -1.20, 7.10),
+    temporal: tuple[str, str] = ("2024-05-01", "2024-05-05"),
+    sample_imerg_netcdf: bool = True,
+) -> tuple[dict[str, Any], list[ProvenanceRecord]]:
+    """Verify live NASA Earthdata CMR granules and optionally sample a live GPM IMERG NetCDF granule."""
+    import earthaccess
+
+    auth = earthaccess.login(strategy="environment")
+    if not auth.authenticated:
+        raise RuntimeError("Earthdata environment authentication failed (check EARTHDATA_* env vars)")
+
+    dataset_keys = ("imerg", "smap", "smap_root_zone", "modis_ndvi", "gedi_canopy")
+    granule_summary: dict[str, Any] = {}
+    records: list[ProvenanceRecord] = []
+
+    imerg_results: list[Any] = []
+    for ds_key in dataset_keys:
+        spec = DATASETS_REGISTRY[ds_key]
+        hits = earthaccess.search_data(
+            short_name=spec.short_name,
+            version=spec.product_version,
+            bounding_box=bbox,
+            temporal=temporal,
+            count=5,
+        )
+        links = [link for item in hits[:2] for link in (item.data_links() if hasattr(item, "data_links") else [])]
+        granule_summary[ds_key] = {
+            "short_name": spec.short_name,
+            "version": spec.product_version,
+            "granule_count": len(hits),
+            "sample_links": links[:2],
+        }
+        if ds_key == "imerg":
+            imerg_results = list(hits)
+        if hits:
+            records.append(
+                ProvenanceRecord(
+                    dataset_key=spec.dataset_key,
+                    short_name=spec.short_name,
+                    product_version=spec.product_version,
+                    retrieval_mode="live",
+                    bbox=bbox,
+                    temporal_range=temporal,
+                    source_uri=links[0] if links else f"cmr://{spec.short_name}.{spec.product_version}",
+                    payload_sha256=compute_payload_sha256(granule_summary[ds_key]),
+                    record_count=len(hits),
+                )
+            )
+
+    imerg_sample: dict[str, Any] | None = None
+    if sample_imerg_netcdf and imerg_results:
+        try:
+            import netCDF4
+
+            opened = earthaccess.open([imerg_results[0]])
+            if opened:
+                with opened[0] as fobj:
+                    raw_bytes = fobj.read()
+                with netCDF4.Dataset("inmemory.nc4", memory=raw_bytes) as nc:
+                    lats = np.asarray(nc.variables["lat"][:], dtype=float)
+                    lons = np.asarray(nc.variables["lon"][:], dtype=float)
+                    lat_idx = np.where((lats >= bbox[1]) & (lats <= bbox[3]))[0]
+                    lon_idx = np.where((lons >= bbox[0]) & (lons <= bbox[2]))[0]
+                    precip_var = nc.variables["precipitation"]
+                    if lat_idx.size > 0 and lon_idx.size > 0:
+                        # GPM_3IMERGDF shape is usually (time, lon, lat) or (time, lat, lon)
+                        dims = precip_var.dimensions
+                        arr = np.asarray(precip_var[:], dtype=float)
+                        if dims == ("time", "lon", "lat"):
+                            sub = arr[0, np.ix_(lon_idx, lat_idx)]
+                        else:
+                            sub = arr[0, np.ix_(lat_idx, lon_idx)]
+                        valid = sub[np.isfinite(sub) & (sub >= 0.0)]
+                        imerg_sample = {
+                            "mean_rain_mm_day": round(float(np.mean(valid)), 3) if valid.size > 0 else None,
+                            "max_rain_mm_day": round(float(np.max(valid)), 3) if valid.size > 0 else None,
+                            "pixel_count": int(valid.size),
+                            "temporal_sample": temporal[0],
+                        }
+        except Exception as exc:
+            imerg_sample = {"note": f"CMR verified; NetCDF subset deferred ({type(exc).__name__})"}
+
+    return {"granules": granule_summary, "imerg_sample": imerg_sample}, records
+

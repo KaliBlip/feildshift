@@ -10,7 +10,7 @@ import {
 } from '@/components/design-system';
 import { ThemedText } from '@/components/themed-text';
 import { Collapsible } from '@/components/ui/collapsible';
-import { EVIDENCE_PASSPORTS, GLOSSARY_ITEMS } from '@/constants/pilot-data';
+import { GLOSSARY_ITEMS, type EvidencePassportEntry } from '@/constants/pilot-data';
 import {
   BottomTabInset,
   CardShadow,
@@ -31,7 +31,7 @@ const TIER_FILTER_OPTIONS = [
 ] as const;
 
 const EVIDENCE_TIER_LABELS: Record<
-  (typeof EVIDENCE_PASSPORTS)[number]['evidenceTier'],
+  EvidencePassportEntry['evidenceTier'],
   string
 > = {
   established_science: 'Established science',
@@ -42,7 +42,7 @@ const EVIDENCE_TIER_LABELS: Record<
 };
 
 const CONFIDENCE_BY_TIER: Record<
-  (typeof EVIDENCE_PASSPORTS)[number]['evidenceTier'],
+  EvidencePassportEntry['evidenceTier'],
   number
 > = {
   expert_validated_insight: 92,
@@ -54,10 +54,10 @@ const CONFIDENCE_BY_TIER: Record<
 
 export default function PassportScreen() {
   const theme = useTheme();
-  const { selectedCell } = usePilotState();
+  const { selectedCell, passports, dataSourceMode } = usePilotState();
   const [tierFilter, setTierFilter] = useState<TierFilter>('all');
 
-  const visiblePassports = EVIDENCE_PASSPORTS.filter((ep) => {
+  const visiblePassports = passports.filter((ep) => {
     if (tierFilter === 'data') return ep.evidenceTier === 'data_derived_finding';
     if (tierFilter === 'science')
       return ep.evidenceTier === 'established_science';
@@ -66,13 +66,20 @@ export default function PassportScreen() {
     return true;
   });
 
+  const sourceLabel =
+    dataSourceMode === 'supabase'
+      ? 'Live Supabase'
+      : dataSourceMode === 'cached'
+        ? 'Offline Cache'
+        : 'Ashanti Fixture';
+
   return (
     <SafeAreaView
       edges={['top']}
       style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <TopBarHeader
         title="Evidence Passports"
-        subtitle={`${selectedCell.cellId} · NASA EO Provenance & Review`}
+        subtitle={`${selectedCell.cellId} · ${sourceLabel}`}
         rightActions={[
           {
             id: 'reset-tier',
