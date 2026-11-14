@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { I18nProvider } from "@/components/I18nProvider";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -17,14 +18,21 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "ScalarField | Agriculture, Informed by Earth",
+  title: "ScalarField | Field Shift Agro-Climate Intelligence",
   description:
-    "ScalarField translates NASA Earth observations and machine learning into clear, actionable agricultural intelligence — helping farmers navigate climate uncertainty with confidence.",
-  keywords: ["agricultural intelligence", "NASA Earth observations", "precision farming", "satellite data", "crop forecasting"],
+    "ScalarField translates NASA Earth observations, multi-criteria strategy analysis, and Evidence Passports into bilingual English & Ashanti Twi agricultural decisions.",
+  keywords: [
+    "agricultural intelligence",
+    "NASA Earth observations",
+    "Field Shift",
+    "Ashanti crop rotation",
+    "satellite data",
+    "evidence passport",
+  ],
   openGraph: {
-    title: "ScalarField | Agriculture, Informed by Earth",
+    title: "ScalarField | Field Shift Agro-Climate Intelligence",
     description:
-      "Translating satellite data into farmer-centred decisions. Powered by NASA Earth observations and agricultural science.",
+      "Translating NASA satellite observations into honest, farmer-centred crop rotation intelligence.",
     type: "website",
   },
 };
@@ -35,7 +43,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

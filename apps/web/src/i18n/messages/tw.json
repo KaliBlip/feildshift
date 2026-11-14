@@ -1,0 +1,143 @@
+{
+  "nav": {
+    "overview": "Mfiaseɛ",
+    "workspace": "Adwumayɛbea",
+    "officer": "Kuayɛ Panin",
+    "smsUssd": "SMS / USSD Demo",
+    "openStudio": "Bue Adwumayɛbea",
+    "syncOnline": "Intanɛt Wɔ Hɔ",
+    "syncOffline": "Asie (Offline)",
+    "pendingQueue": "{count} retwɛn",
+    "languageLabel": "Kasa"
+  },
+  "hero": {
+    "eyebrow": "NASA Asase Hwɛ (Earth Observations)",
+    "titleLead": "Kuayɛ,",
+    "titleEmphasis": "Asase Mu Nyansa.",
+    "subtitle": "ScalarField dan NASA satellite nsɛm ne kuayɛ nyansa kɔ Ashanti afuw mu nsakrae a ɛda adi pefee — wɔ intanɛt so anaa offline.",
+    "ctaPrimary": "Bue Adwumayɛbea",
+    "ctaSecondary": "Sɔ *920*44# SMS/USSD Hwɛ",
+    "ctaOfficer": "Kuayɛ Panin Pon",
+    "scroll": "Kɔ fam",
+    "aboutLabel": "Yɛn Kwan",
+    "aboutTitle": "Nnyinasoɔ nnan. Mfonini pefee baako.",
+    "aboutSubtitle": "Satellite nsɛm, asase kɛseɛ mu nokwaredie, ne okuafoɔ botaeɛ a kuayɛ adwumayɛfoɔ apene so."
+  },
+  "workspace": {
+    "badge": "Ashanti Pilot Mpɔtam · Nkyekyɛmu 5 (50 × 50 km)",
+    "title": "Field Shift Nsɛmmuaeɛ Pon",
+    "subtitle": "Hwɛ bere a asase da hɔ kwa, hwɛ satellite kɛseɛ ne w'afuw ntam, sɔ ewiem nsakrae hwɛ, na bue Adanseɛ Krataa.",
+    "printSummary": "Tintim Nsɛm Tiawa",
+    "sourceSupabase": "Supabase Nkitahodi Pa",
+    "sourceCache": "Offline Nsɛm Ahyɛase",
+    "sourceFixture": "Ashanti Nhwɛsoɔ",
+    "tabs": {
+      "explore": "Asase Mfonini ne Bosome Bere",
+      "compare": "Ntotoho ne Ewiem Nsɔhwɛ",
+      "glossary": "Adanseɛ ne Nkyerɛaseɛ"
+    }
+  },
+  "scale": {
+    "label": "Kɛseɛ Mu Nokwaredie",
+    "title": "Satellite hu w'afuw ketewa pefee anaa?",
+    "farmSizeLabel": "W'afuw Kɛseɛ (ha)",
+    "fieldScale": "Hu Afuw Pefee",
+    "subRegional": "Frafra Mpɔtam",
+    "regionalContext": "Mpɔtam Nsɛm Nko Ara",
+    "honestyCallout": "Wɔ {farmHa} ha ({farmKm2} km²) so no, 10 km nsuo mfonini kata afuw bɛyɛ {farmsCovered} so. Hwɛ nsuo tɔ wɔ w'afuw so."
+  },
+  "map": {
+    "label": "Asase Mfonini Hwɛbea",
+    "title": "Ashanti Nkyekyɛmu ne Nnafua 10 Bere",
+    "layerLabel": "Mfonini Fã",
+    "layers": {
+      "bare": "Asase a Ɛda Hɔ Kwa",
+      "moisture": "SMAP Asase Mu Nsuo",
+      "slope": "Bepɔw ne Nsuo Prapra",
+      "rain": "Afe Nsuo Tɔ (mm)"
+    },
+    "dekadScrubber": "Bere Nsakrae (Nnafua 10)",
+    "selectedCell": "Mpɔtam a Wɔapaw",
+    "elevation": "Sorokɔ",
+    "slope": "Bepɔw Nkyɛn",
+    "soilTexture": "Asase Su",
+    "soilPh": "Asase pH",
+    "cluster": "M2 Kuw",
+    "fallbackBadge": "Vector Grid Kyerɛbea"
+  },
+  "calendar": {
+    "label": "Bosome Bere ne Asase Hwɛ Kalenda",
+    "title": "Bosome 12 Nsuo, Ahaban, ne Asase Da Hɔ Asiane",
+    "subtitle": "Mia bosome biara so na hwɛ nsuo nokwaredie, SMAP fɔm nsuo, mununkum QA, ne afuw afotuo.",
+    "bareRiskBadge": "Bere a Asase Da Hɔ Kwa",
+    "protectedBadge": "Ahaban Kata Asase So",
+    "rainLabel": "Nsuo Tɔ (mm)",
+    "et0Label": "Owia Nsuo Twetwe ET0 (mm)",
+    "ndviLabel": "NDVI Ahabanmono"
+  },
+  "compare": {
+    "label": "Ntotoho ne Ewiem Nsɔhwɛ",
+    "title": "Nnɔbae Nsakrae Ntotoho",
+    "prioritiesTitle": "1. Afuw Nsɛm ne Botaeɛ",
+    "stressTitle": "2. Ewiem Nsɔhwɛ ne Abakɔsɛm Nhwɛsoɔ",
+    "analogLabel": "Afe Abakɔsɛm Nhwɛsoɔ",
+    "rainSlider": "Nsuo Nsakrae",
+    "tempSlider": "Ahohuru Nsakrae",
+    "resetStress": "San Kɔ Mfiaseɛ",
+    "viewCards": "Nkrataa",
+    "viewTable": "Ntotoho Pon",
+    "minimaxBadge": "Ahobammɔ Paara Wɔ Ewiem Mu",
+    "baselineBadge": "Nea Wɔreyɛ Seesei",
+    "baseScore": "Dodoɔ",
+    "winProb": "Nkonimdie (2k MC)",
+    "meanRank": "Kwan Nkyekyɛmu",
+    "worstCase": "Bere Bɔne Mu",
+    "ureaSaved": "Urea a Wɔkora",
+    "bareAvoided": "Nna a Asase Nda Hɔ",
+    "openPassport": "Bue Adanseɛ Krataa",
+    "logDecision": "Kyerɛw Gyinaeɛ To Hɔ",
+    "sendToSms": "Hwɛ Twi + Eng SMS",
+    "presetBalanced": "Pɛpɛɛpɛ",
+    "presetWater": "Nsuo Kora",
+    "presetSoil": "Asase ne Bepɔw",
+    "presetIncome": "Sika ne Dwa"
+  },
+  "passport": {
+    "dialogClose": "To Adanseɛ Mu",
+    "evidenceTier": "Adanseɛ Gyinapɛn",
+    "datasets": "Satellite ne Asase Nsɛm",
+    "coverage": "Beaeɛ ne Bere",
+    "method": "Kwan a Yɛfaa So",
+    "uncertainty": "Akyinnyeɛ ne QA",
+    "scaleNote": "Kɛseɛ Mu Nokwaredie",
+    "gaps": "Nsɛm a Eda so Di Mu Hia",
+    "localReview": "Kuayɛ Panin Nhwehwɛmu"
+  },
+  "glossary": {
+    "label": "Nyansapɛ Nkyerɛaseɛ Mmerɛw",
+    "title": "Nsɛmfua Titiriw Nkyerɛaseɛ",
+    "subtitle": "Mia asɛmfua biara so na kenkan ne nkyerɛaseɛ wɔ ha ara."
+  },
+  "officer": {
+    "label": "Kuayɛ Adwuma a Ewo Ho Tumi",
+    "title": "Kuayɛ Panin Adwumayɛbea",
+    "subtitle": "Beaeɛ a kuayɛ mpanyimfoɔ kyerɛw akuafoɔ gyinaeɛ na wɔhwɛ afuw mu nsunsuansoɔ ansa na M8 akontaabu asesa.",
+    "roleStatusTitle": "Adwumayɛ Tumi ne RLS Bammɔ",
+    "roleFarmer": "Okuafoɔ (Kyerɛw afuw mu amanneɛbɔ)",
+    "roleOfficer": "MOFA Kuayɛ Panin (Pene gyinaeɛ ne amanneɛbɔ so)",
+    "roleAgronomist": "Agronomist Panyin (M8 nhwehwɛmu pɛpɛɛpɛ)",
+    "logTab": "Kyerɛw Afuw Gyinaeɛ",
+    "gradeTab": "Hwɛ Afuw Nsunsuansoɔ",
+    "authLockedNotice": "Kuayɛ Panin anaa Agronomist tumi nko ara na etumi ma amanneɛbɔ kɔ M8 mu (RLS: auth.jwt() -> app_metadata.role).",
+    "submitDecisionBtn": "Fa Gyinaeɛ Kɔ",
+    "saveGradeBtn": "Sie Panin Gyinapɛn"
+  },
+  "sms": {
+    "label": "2G Telefon Ketewa Afotuo",
+    "title": "SMS ne USSD Telefon Ketewa Nhwɛsoɔ (*920*44#)",
+    "subtitle": "Hwɛ sɛnea akuafoɔ a wɔnni smartphone nya Ashanti afuw afotuo wɔ *920*44# USSD ne SMS tiawa (<320) mu.",
+    "copySms": "Fa SMS Nsɛm",
+    "copied": "Wafa SMS nsɛm awie",
+    "generateTitle": "Siesie Afotuo Nsɛm"
+  }
+}
