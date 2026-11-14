@@ -3,8 +3,11 @@
 from fieldshift.features.seasonal import (
     SEASON_FEATURE_COLUMNS,
     compute_erosion_exposure_index,
+    compute_max_water_deficit_mm,
+    compute_water_satisfaction_index,
     count_heat_stress_days,
     count_heavy_rain_days,
+    detect_flash_drought_dekads,
     detect_rainy_cessation_dekad,
     detect_rainy_onset_dekad,
     estimate_hargreaves_et0,
@@ -15,8 +18,11 @@ from fieldshift.features.seasonal import (
 __all__ = [
     "SEASON_FEATURE_COLUMNS",
     "compute_erosion_exposure_index",
+    "compute_max_water_deficit_mm",
+    "compute_water_satisfaction_index",
     "count_heat_stress_days",
     "count_heavy_rain_days",
+    "detect_flash_drought_dekads",
     "detect_rainy_cessation_dekad",
     "detect_rainy_onset_dekad",
     "estimate_hargreaves_et0",

@@ -5,6 +5,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { baseScores, rankProbabilities } from './scoring.ts';
+import { buildSmsSummaryCard, estimateNitrogenOffsetSummary } from './sms-export.ts';
+import { computeMinimaxRegretRankings } from './stress.ts';
 
 interface ScoringVector {
   strategies: string[];
@@ -50,4 +52,49 @@ test('rankProbabilities probabilities sum to 1 and match strategy ordering', () 
   assert.ok(out.probabilityFirst[1] > out.probabilityFirst[0]);
   assert.ok(out.probabilityFirst[2] > out.probabilityFirst[0]);
   assert.ok(out.meanRank[2] < out.meanRank[0]);
+});
+
+test('computeMinimaxRegretRankings identifies robust lowest-regret strategy', () => {
+  const sampleStrategies = [
+    {
+      code: 'continuous_maize',
+      name: 'Continuous Maize',
+      sequence: 'Maize -> Maize',
+      isBaseline: true,
+      criterionScores: [0.46, 0.42, 0.38, 0.56] as [number, number, number, number],
+      expectedBenefits: [],
+      informationGaps: [],
+      risksNeedingReview: [],
+    },
+    {
+      code: 'maize_cowpea_relay',
+      name: 'Maize-Cowpea Relay',
+      sequence: 'Maize -> Cowpea',
+      isBaseline: false,
+      criterionScores: [0.76, 0.78, 0.81, 0.72] as [number, number, number, number],
+      expectedBenefits: [],
+      informationGaps: [],
+      risksNeedingReview: [],
+    },
+  ];
+  const mm = computeMinimaxRegretRankings(sampleStrategies, [0.35, 0.25, 0.2, 0.2], baseScores);
+  assert.equal(mm.lowestRegretCode, 'maize_cowpea_relay');
+  assert.equal(mm.rowsByCode.maize_cowpea_relay.maxRegret, 0);
+  assert.ok(mm.rowsByCode.continuous_maize.maxRegret > 0.2);
+
+  const offset = estimateNitrogenOffsetSummary(sampleStrategies[1]);
+  assert.ok(offset.ureaBagsSavedPerHa > 1.5);
+  assert.ok(offset.bareDaysAvoided >= 30);
+
+  const sms = buildSmsSummaryCard({
+    cellId: 'ASH_R05_C05',
+    strategy: sampleStrategies[1],
+    baseScorePct: 77,
+    winProbPct: 84,
+    scenarioLabel: 'Baseline',
+  });
+  assert.ok(sms.length <= 320, `SMS card exceeded 320 chars: ${sms.length}`);
+  assert.ok(sms.includes('ASH_R05_C05'));
+  assert.ok(sms.includes('Twi:'));
+  assert.ok(sms.includes('urea'));
 });

@@ -195,6 +195,103 @@ def fetch_soilgrids_point(
     return summary, record
 
 
+ISDASOIL_BASE_URL = "https://api.isda-africa.com"
+
+
+def _extract_isda_value(prop_payload: Any, depth: str = "0-20") -> float | None:
+    if not isinstance(prop_payload, dict):
+        return None
+    if depth in prop_payload and isinstance(prop_payload[depth], dict):
+        val = prop_payload[depth].get("value", prop_payload[depth].get("mean"))
+        if isinstance(val, dict):
+            val = val.get("value", val.get("mean"))
+        return float(val) if val is not None else None
+    for entry in prop_payload.get("property", []) if isinstance(prop_payload.get("property"), list) else []:
+        if isinstance(entry, dict) and entry.get("depth") in (depth, "0-20cm"):
+            val = entry.get("value")
+            if isinstance(val, dict):
+                val = val.get("value")
+            return float(val) if val is not None else None
+    return None
+
+
+def fetch_isdasoil_point(
+    lat: float,
+    lon: float,
+    username: str | None = None,
+    password: str | None = None,
+    timeout: int = 20,
+    session: requests.Session | None = None,
+) -> tuple[dict[str, Any], ProvenanceRecord]:
+    """Query free CC-BY-4.0 iSDAsoil v2 API (30 m African topsoil) using optional credentials."""
+    user = username if username is not None else os.environ.get("ISDASOIL_USERNAME", "").strip()
+    pwd = password if password is not None else os.environ.get("ISDASOIL_PASSWORD", "").strip()
+    if not user or not pwd:
+        raise ValueError("ISDASOIL_USERNAME and ISDASOIL_PASSWORD are required for iSDAsoil v2 lookup")
+
+    client = session or requests
+    auth_resp = client.post(
+        f"{ISDASOIL_BASE_URL}/login",
+        data={"username": user, "password": pwd},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=timeout,
+    )
+    auth_resp.raise_for_status()
+    token = auth_resp.json().get("access_token")
+    if not token:
+        raise RuntimeError("iSDAsoil authentication response missing access_token")
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    params = [("lat", f"{lat:.5f}"), ("lon", f"{lon:.5f}"), ("depth", "0-20")]
+    for prop in ("ph", "carbon_organic", "nitrogen_total", "clay_content", "sand_content", "silt_content"):
+        params.append(("property", prop))
+
+    resp = client.get(
+        f"{ISDASOIL_BASE_URL}/isdasoil/v2/soilproperty",
+        headers=headers,
+        params=params,
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    props = payload.get("property", payload) if isinstance(payload, dict) else {}
+
+    ph_val = _extract_isda_value(props.get("ph"))
+    soc_val = _extract_isda_value(props.get("carbon_organic"))
+    n_val = _extract_isda_value(props.get("nitrogen_total"))
+    clay_pct = round(_extract_isda_value(props.get("clay_content")) or 20.0, 1)
+    sand_pct = round(_extract_isda_value(props.get("sand_content")) or 50.0, 1)
+    silt_pct = round(_extract_isda_value(props.get("silt_content")) or max(0.0, 100.0 - clay_pct - sand_pct), 1)
+
+    summary = {
+        "lat": lat,
+        "lon": lon,
+        "resolution_km": 0.03,
+        "source": "isdasoil_v2",
+        "soil_ph": round(ph_val if ph_val is not None else 5.8, 2),
+        "soil_organic_carbon_g_kg": round(soc_val if soc_val is not None else 14.0, 2),
+        "total_nitrogen_g_kg": round(n_val, 3) if n_val is not None else None,
+        "clay_pct": clay_pct,
+        "sand_pct": sand_pct,
+        "silt_pct": silt_pct,
+        "soil_texture": classify_usda_texture(clay_pct, sand_pct),
+    }
+
+    spec = DATASETS_REGISTRY["isdasoil"]
+    record = ProvenanceRecord(
+        dataset_key=spec.dataset_key,
+        short_name=spec.short_name,
+        product_version=spec.product_version,
+        retrieval_mode="live",
+        bbox=(round(lon - 0.0003, 4), round(lat - 0.0003, 4), round(lon + 0.0003, 4), round(lat + 0.0003, 4)),
+        temporal_range=("static", "static"),
+        source_uri=f"{ISDASOIL_BASE_URL}/isdasoil/v2/soilproperty?lat={lat:.4f}&lon={lon:.4f}",
+        payload_sha256=compute_payload_sha256(payload),
+        record_count=len(props) if isinstance(props, dict) else 1,
+    )
+    return summary, record
+
+
 def search_earthaccess_granules(
     short_name: str,
     bbox: tuple[float, float, float, float],
@@ -349,3 +446,90 @@ def generate_ashanti_pilot_raw_daily(
         )
 
     return df, manifest
+
+
+def fetch_earthdata_ashanti_snapshot(
+    bbox: tuple[float, float, float, float] = (-1.70, 6.60, -1.20, 7.10),
+    temporal: tuple[str, str] = ("2024-05-01", "2024-05-05"),
+    sample_imerg_netcdf: bool = True,
+) -> tuple[dict[str, Any], list[ProvenanceRecord]]:
+    """Verify live NASA Earthdata CMR granules and optionally sample a live GPM IMERG NetCDF granule."""
+    import earthaccess
+
+    auth = earthaccess.login(strategy="environment")
+    if not auth.authenticated:
+        raise RuntimeError("Earthdata environment authentication failed (check EARTHDATA_* env vars)")
+
+    dataset_keys = ("imerg", "smap", "smap_root_zone", "modis_ndvi", "gedi_canopy")
+    granule_summary: dict[str, Any] = {}
+    records: list[ProvenanceRecord] = []
+
+    imerg_results: list[Any] = []
+    for ds_key in dataset_keys:
+        spec = DATASETS_REGISTRY[ds_key]
+        hits = earthaccess.search_data(
+            short_name=spec.short_name,
+            version=spec.product_version,
+            bounding_box=bbox,
+            temporal=temporal,
+            count=5,
+        )
+        links = [link for item in hits[:2] for link in (item.data_links() if hasattr(item, "data_links") else [])]
+        granule_summary[ds_key] = {
+            "short_name": spec.short_name,
+            "version": spec.product_version,
+            "granule_count": len(hits),
+            "sample_links": links[:2],
+        }
+        if ds_key == "imerg":
+            imerg_results = list(hits)
+        if hits:
+            records.append(
+                ProvenanceRecord(
+                    dataset_key=spec.dataset_key,
+                    short_name=spec.short_name,
+                    product_version=spec.product_version,
+                    retrieval_mode="live",
+                    bbox=bbox,
+                    temporal_range=temporal,
+                    source_uri=links[0] if links else f"cmr://{spec.short_name}.{spec.product_version}",
+                    payload_sha256=compute_payload_sha256(granule_summary[ds_key]),
+                    record_count=len(hits),
+                )
+            )
+
+    imerg_sample: dict[str, Any] | None = None
+    if sample_imerg_netcdf and imerg_results:
+        try:
+            import netCDF4
+
+            opened = earthaccess.open([imerg_results[0]])
+            if opened:
+                with opened[0] as fobj:
+                    raw_bytes = fobj.read()
+                with netCDF4.Dataset("inmemory.nc4", memory=raw_bytes) as nc:
+                    lats = np.asarray(nc.variables["lat"][:], dtype=float)
+                    lons = np.asarray(nc.variables["lon"][:], dtype=float)
+                    lat_idx = np.where((lats >= bbox[1]) & (lats <= bbox[3]))[0]
+                    lon_idx = np.where((lons >= bbox[0]) & (lons <= bbox[2]))[0]
+                    precip_var = nc.variables["precipitation"]
+                    if lat_idx.size > 0 and lon_idx.size > 0:
+                        # GPM_3IMERGDF shape is usually (time, lon, lat) or (time, lat, lon)
+                        dims = precip_var.dimensions
+                        arr = np.asarray(precip_var[:], dtype=float)
+                        if dims == ("time", "lon", "lat"):
+                            sub = arr[0, np.ix_(lon_idx, lat_idx)]
+                        else:
+                            sub = arr[0, np.ix_(lat_idx, lon_idx)]
+                        valid = sub[np.isfinite(sub) & (sub >= 0.0)]
+                        imerg_sample = {
+                            "mean_rain_mm_day": round(float(np.mean(valid)), 3) if valid.size > 0 else None,
+                            "max_rain_mm_day": round(float(np.max(valid)), 3) if valid.size > 0 else None,
+                            "pixel_count": int(valid.size),
+                            "temporal_sample": temporal[0],
+                        }
+        except Exception as exc:
+            imerg_sample = {"note": f"CMR verified; NetCDF subset deferred ({type(exc).__name__})"}
+
+    return {"granules": granule_summary, "imerg_sample": imerg_sample}, records
+

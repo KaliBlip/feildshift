@@ -17,9 +17,26 @@ import {
   type PilotCellSummary,
   type RotationStrategySpec,
 } from '@/constants/pilot-data';
-import { fetchLivePilotStrategies } from '@/lib/supabase';
+import {
+  fetchLivePilotStrategies,
+  flushQueuedSubmissions,
+  getQueuedSubmissionCount,
+  readCachedPilotPayload,
+  submitDecisionLog,
+  submitOutcomeReport,
+  type OutcomeReportInput,
+  type SubmissionResult,
+} from '@/lib/supabase';
 
 export type PriorityWeightsTuple = [number, number, number, number];
+export type PilotDataSourceMode = 'fixture' | 'supabase' | 'cached';
+
+export interface FarmerDecisionRequest {
+  selectedStrategyCode: string;
+  computedBaseScores: Record<string, number>;
+  rankProbabilities: Record<string, number>;
+  reasoningNotes?: string;
+}
 
 interface PilotStateValue {
   cells: PilotCellSummary[];
@@ -32,8 +49,14 @@ interface PilotStateValue {
   applyPreset: (weights: PriorityWeightsTuple) => void;
   strategies: RotationStrategySpec[];
   passports: EvidencePassportEntry[];
-  dataSourceMode: 'fixture' | 'supabase';
+  dataSourceMode: PilotDataSourceMode;
+  lastSyncedAt: string | null;
+  queuedLogsCount: number;
   refreshLivePilotData: () => Promise<void>;
+  logFarmerDecision: (request: FarmerDecisionRequest) => Promise<SubmissionResult>;
+  logFieldOutcome: (
+    request: Omit<OutcomeReportInput, 'cellId'>,
+  ) => Promise<SubmissionResult>;
 }
 
 const PilotStateContext = createContext<PilotStateValue | null>(null);
@@ -50,46 +73,99 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
     useState<RotationStrategySpec[]>(ROTATION_STRATEGIES);
   const [passports, setPassports] =
     useState<EvidencePassportEntry[]>(EVIDENCE_PASSPORTS);
-  const [dataSourceMode, setDataSourceMode] = useState<'fixture' | 'supabase'>('fixture');
+  const [dataSourceMode, setDataSourceMode] =
+    useState<PilotDataSourceMode>('fixture');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [queuedLogsCount, setQueuedLogsCount] = useState<number>(() =>
+    getQueuedSubmissionCount(),
+  );
 
-  const refreshLivePilotData = useCallback(async () => {
-    const live = await fetchLivePilotStrategies(selectedCellId);
+  const applyHydratedOrCached = useCallback((cellId: string, live: Awaited<ReturnType<typeof fetchLivePilotStrategies>>) => {
     if (live && live.strategies.length > 0) {
       setStrategies(live.strategies);
       if (live.passports.length > 0) {
         setPassports(live.passports);
       }
       setDataSourceMode('supabase');
-    } else {
-      setStrategies(ROTATION_STRATEGIES);
-      setPassports(EVIDENCE_PASSPORTS);
-      setDataSourceMode('fixture');
+      setLastSyncedAt(live.syncedAt ?? null);
+      return;
     }
-  }, [selectedCellId]);
+
+    const cached = readCachedPilotPayload(cellId);
+    if (cached && cached.strategies.length > 0) {
+      setStrategies(cached.strategies);
+      if (cached.passports.length > 0) {
+        setPassports(cached.passports);
+      }
+      setDataSourceMode('cached');
+      setLastSyncedAt(cached.syncedAt ?? null);
+      return;
+    }
+
+    setStrategies(ROTATION_STRATEGIES);
+    setPassports(EVIDENCE_PASSPORTS);
+    setDataSourceMode('fixture');
+    setLastSyncedAt(null);
+  }, []);
+
+  const refreshLivePilotData = useCallback(async () => {
+    const [, flushResult] = await Promise.all([
+      fetchLivePilotStrategies(selectedCellId).then((live) =>
+        applyHydratedOrCached(selectedCellId, live),
+      ),
+      flushQueuedSubmissions(),
+    ]);
+    setQueuedLogsCount(flushResult.remaining);
+  }, [applyHydratedOrCached, selectedCellId]);
 
   useEffect(() => {
     let active = true;
     void (async () => {
-      const live = await fetchLivePilotStrategies(selectedCellId);
+      const [live, flushResult] = await Promise.all([
+        fetchLivePilotStrategies(selectedCellId),
+        flushQueuedSubmissions(),
+      ]);
       if (!active) {
         return;
       }
-      if (live && live.strategies.length > 0) {
-        setStrategies(live.strategies);
-        if (live.passports.length > 0) {
-          setPassports(live.passports);
-        }
-        setDataSourceMode('supabase');
-      } else {
-        setStrategies(ROTATION_STRATEGIES);
-        setPassports(EVIDENCE_PASSPORTS);
-        setDataSourceMode('fixture');
-      }
+      applyHydratedOrCached(selectedCellId, live);
+      setQueuedLogsCount(flushResult.remaining);
     })();
     return () => {
       active = false;
     };
-  }, [selectedCellId]);
+  }, [applyHydratedOrCached, selectedCellId]);
+
+  const logFarmerDecision = useCallback(
+    async (request: FarmerDecisionRequest): Promise<SubmissionResult> => {
+      const result = await submitDecisionLog({
+        cellId: selectedCellId,
+        selectedStrategyCode: request.selectedStrategyCode,
+        farmAreaHa,
+        priorityWeights: [...weights],
+        computedBaseScores: request.computedBaseScores,
+        rankProbabilities: request.rankProbabilities,
+        reasoningNotes: request.reasoningNotes ?? null,
+      });
+      setQueuedLogsCount(result.queuedCount);
+      return result;
+    },
+    [farmAreaHa, selectedCellId, weights],
+  );
+
+  const logFieldOutcome = useCallback(
+    async (
+      request: Omit<OutcomeReportInput, 'cellId'>,
+    ): Promise<SubmissionResult> => {
+      const result = await submitOutcomeReport({
+        cellId: selectedCellId,
+        ...request,
+      });
+      setQueuedLogsCount(result.queuedCount);
+      return result;
+    },
+    [selectedCellId],
+  );
 
   const selectedCell =
     ASHANTI_PILOT_CELLS.find((cell) => cell.cellId === selectedCellId) ??
@@ -126,7 +202,11 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
         strategies,
         passports,
         dataSourceMode,
+        lastSyncedAt,
+        queuedLogsCount,
         refreshLivePilotData,
+        logFarmerDecision,
+        logFieldOutcome,
       }}>
       {children}
     </PilotStateContext.Provider>
