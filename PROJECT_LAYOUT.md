@@ -25,8 +25,17 @@ field-shift/
 ├── knowledge/                Crop knowledge table (CSV). Every row cited and expert-reviewed.
 ├── supabase/migrations/      Database schema, PostGIS, row-level security policies
 ├── shared/test-vectors/      JSON fixtures that both Python and TypeScript scoring must reproduce
-└── docs/
+└── docs/                     Build phases, work split, and architecture docs
 ```
+
+## Team Ownership & Work Split
+
+See [docs/BUILD_PHASES_AND_WORK_SPLIT.md](docs/BUILD_PHASES_AND_WORK_SPLIT.md) for the full phased build plan and integration gates.
+
+| Developer | OS | Primary Ownership |
+| --- | --- | --- |
+| **`kaliblip`** | macOS | Mobile app (`apps/mobile/`), offline ML & Earth observation pipeline (`pipeline/`), crop knowledge base (`knowledge/`), optional FastAPI service (`apps/api/`), Supabase migrations/ingest (`supabase/`) |
+| **`OdinID-CS`** | Linux | Web application (`apps/web/`): MapLibre/Recharts visualizations, Vulnerability Calendar, Strategy Comparison & Scenario Sliders, Evidence Passport & Glossary UI, `next-intl` (EN/Twi), PWA offline cache, Vercel deploy |
 
 ## Dependency rules
 
