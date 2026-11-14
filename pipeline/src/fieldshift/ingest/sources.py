@@ -1,0 +1,211 @@
+"""Data-source adapters (NASA POWER, earthaccess CMR) and Ashanti pilot generator."""
+from __future__ import annotations
+
+from typing import Any, Sequence
+from urllib.parse import urlencode
+
+import numpy as np
+import pandas as pd
+
+from fieldshift.ingest.manifest import (
+    DATASETS_REGISTRY,
+    ProvenanceManifest,
+    ProvenanceRecord,
+    compute_payload_sha256,
+)
+
+POWER_DAILY_BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
+DEFAULT_POWER_PARAMETERS: tuple[str, ...] = (
+    "PRECTOTCORR",
+    "T2M",
+    "T2M_MAX",
+    "T2M_MIN",
+    "ALLSKY_SFC_SW_DWN",
+    "RH2M",
+)
+
+
+def build_power_request_url(
+    lat: float,
+    lon: float,
+    start_yyyymmdd: str,
+    end_yyyymmdd: str,
+    parameters: Sequence[str] = DEFAULT_POWER_PARAMETERS,
+) -> str:
+    """Construct a NASA POWER daily agroclimatology API query URL."""
+    if not (-90.0 <= lat <= 90.0):
+        raise ValueError(f"Latitude out of range: {lat}")
+    if not (-180.0 <= lon <= 180.0):
+        raise ValueError(f"Longitude out of range: {lon}")
+    if len(start_yyyymmdd) != 8 or len(end_yyyymmdd) != 8:
+        raise ValueError("start_yyyymmdd and end_yyyymmdd must use YYYYMMDD format")
+
+    params = {
+        "parameters": ",".join(parameters),
+        "community": "AG",
+        "longitude": f"{lon:.4f}",
+        "latitude": f"{lat:.4f}",
+        "start": start_yyyymmdd,
+        "end": end_yyyymmdd,
+        "format": "JSON",
+    }
+    return f"{POWER_DAILY_BASE_URL}?{urlencode(params)}"
+
+
+def search_earthaccess_granules(
+    short_name: str,
+    bbox: tuple[float, float, float, float],
+    temporal: tuple[str, str],
+    dry_run: bool = True,
+    count: int = 10,
+) -> dict[str, Any]:
+    """Query NASA Earthdata CMR granules via earthaccess (supports offline dry_run)."""
+    if len(bbox) != 4 or bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+        raise ValueError("bbox must be (min_lon, min_lat, max_lon, max_lat)")
+    if len(temporal) != 2:
+        raise ValueError("temporal must be (start_iso_date, end_iso_date)")
+
+    if dry_run:
+        return {
+            "short_name": short_name,
+            "bounding_box": bbox,
+            "temporal": temporal,
+            "count": count,
+            "mode": "dry_run",
+            "granules": [],
+        }
+
+    import earthaccess
+
+    results = earthaccess.search_data(
+        short_name=short_name,
+        bounding_box=bbox,
+        temporal=temporal,
+        count=count,
+    )
+    granules = [
+        {
+            "producer_granule_id": item.get("umm", {}).get("GranuleUR", ""),
+            "links": item.data_links() if hasattr(item, "data_links") else [],
+        }
+        for item in results
+    ]
+    return {
+        "short_name": short_name,
+        "bounding_box": bbox,
+        "temporal": temporal,
+        "count": len(granules),
+        "mode": "live",
+        "granules": granules,
+    }
+
+
+def generate_ashanti_pilot_raw_daily(
+    cell_id: str,
+    year: int,
+    seed: int = 42,
+    centre_lat: float = 6.85,
+    centre_lon: float = -1.45,
+    half_width_deg: float = 0.025,
+) -> tuple[pd.DataFrame, ProvenanceManifest]:
+    """Generate synthetic bimodal Ashanti daily observations plus a ProvenanceManifest."""
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range(f"{year}-01-01", f"{year}-12-31", freq="D")
+    n_days = len(dates)
+    doy = dates.day_of_year.to_numpy(dtype=float)
+
+    # Bimodal Ashanti rainy seasons: major (~DOY 135, May) and minor (~DOY 280, Oct)
+    major_wave = np.exp(-0.5 * ((doy - 135.0) / 36.0) ** 2)
+    minor_wave = 0.80 * np.exp(-0.5 * ((doy - 280.0) / 26.0) ** 2)
+    rain_prob = np.clip(0.06 + 0.56 * major_wave + 0.48 * minor_wave, 0.03, 0.78)
+
+    rain_events = rng.random(n_days) < rain_prob
+    rain_intensity = rng.gamma(shape=1.8, scale=8.5, size=n_days)
+    rain_imerg_mm = np.where(rain_events, rain_intensity, 0.0)
+    rain_era5_mm = np.clip(
+        rain_imerg_mm * rng.normal(0.95, 0.14, size=n_days) + rng.normal(0.1, 0.4, size=n_days),
+        0.0,
+        None,
+    )
+
+    # Exponentially weighted soil moisture memory driving SMAP and true vegetation response
+    sm_series = np.empty(n_days, dtype=float)
+    sm_val = 0.15
+    for idx in range(n_days):
+        sm_val = 0.90 * sm_val + 0.006 * rain_imerg_mm[idx] + rng.normal(0.0, 0.004)
+        sm_val = float(np.clip(sm_val, 0.08, 0.44))
+        sm_series[idx] = sm_val
+
+    # Peak cloud probability coincides with humid major & minor rainy seasons
+    cloud_prob = np.clip(
+        0.14 + 0.62 * major_wave + 0.52 * minor_wave + rng.normal(0.0, 0.10, size=n_days),
+        0.02,
+        0.96,
+    )
+
+    ndvi_true = np.clip(
+        0.22 + 0.46 * major_wave + 0.36 * minor_wave + 0.25 * (sm_series - 0.15),
+        0.18,
+        0.82,
+    )
+    # Atmospheric haze & sub-pixel cloud depress optical NDVI prior to QA masking
+    cloud_bias = np.where(cloud_prob > 0.35, -0.18 * cloud_prob, 0.0)
+    ndvi_raw = np.clip(ndvi_true + cloud_bias + rng.normal(0.0, 0.025, size=n_days), 0.05, 0.92)
+
+    seasonal_cool = 3.6 * major_wave + 2.8 * minor_wave
+    tmax_c = np.round(33.8 - seasonal_cool + rng.normal(0.0, 1.1, size=n_days), 2)
+    tmin_c = np.round(21.4 - 0.4 * seasonal_cool + rng.normal(0.0, 0.8, size=n_days), 2)
+    lst_max_c = np.round(tmax_c + np.where(ndvi_true < 0.30, 5.2, 2.1), 2)
+    et0_mm = np.round(np.clip(4.6 - 0.9 * major_wave + rng.normal(0.0, 0.35, size=n_days), 2.5, 6.8), 2)
+
+    cell_bbox = (
+        round(centre_lon - half_width_deg, 6),
+        round(centre_lat - half_width_deg, 6),
+        round(centre_lon + half_width_deg, 6),
+        round(centre_lat + half_width_deg, 6),
+    )
+
+    df = pd.DataFrame(
+        {
+            "cell_id": cell_id,
+            "date": dates,
+            "rain_imerg_mm": np.round(rain_imerg_mm, 2),
+            "rain_era5_mm": np.round(rain_era5_mm, 2),
+            "smap_sm_m3m3": np.round(sm_series, 4),
+            "ndvi_raw": np.round(ndvi_raw, 4),
+            "cloud_prob": np.round(cloud_prob, 3),
+            "tmax_c": tmax_c,
+            "tmin_c": tmin_c,
+            "lst_max_c": lst_max_c,
+            "et0_mm": et0_mm,
+        }
+    )
+
+    payload_digest = compute_payload_sha256(df.to_csv(index=False))
+    temporal_range = (f"{year}-01-01", f"{year}-12-31")
+
+    manifest = ProvenanceManifest(
+        manifest_id=f"{cell_id}_{year}_pilot",
+        region_name="ashanti_pilot",
+        cell_id=cell_id,
+        notes="Synthetic Ashanti bimodal pilot archive for offline pipeline QC & testing.",
+    )
+    power_uri = build_power_request_url(centre_lat, centre_lon, f"{year}0101", f"{year}1231")
+
+    for ds_key in ("imerg", "smap", "modis_ndvi", "nasa_power", "era5_land", "srtm"):
+        spec = DATASETS_REGISTRY[ds_key]
+        manifest.add_record(
+            ProvenanceRecord(
+                dataset_key=spec.dataset_key,
+                short_name=spec.short_name,
+                product_version=spec.product_version,
+                retrieval_mode="synthetic_pilot",
+                bbox=cell_bbox,
+                temporal_range=temporal_range,
+                source_uri=power_uri if ds_key == "nasa_power" else f"cmr://{spec.short_name}.{spec.product_version}",
+                payload_sha256=payload_digest,
+                record_count=n_days,
+            )
+        )
+
+    return df, manifest

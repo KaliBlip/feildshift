@@ -1,30 +1,46 @@
 import { NativeTabs } from 'expo-router/native-tabs';
-import { useColorScheme } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const colors = useTheme();
 
   return (
     <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      backgroundColor={colors.surface}
+      tintColor={colors.primary}
+      indicatorColor={colors.primarySoft}
+      iconColor={{ default: colors.textMuted, selected: colors.primary }}
+      labelStyle={{
+        default: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
+        selected: { color: colors.primary, fontSize: 11, fontWeight: '600' },
+      }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
+          sf={{ default: 'house', selected: 'house.fill' }}
+          md="home"
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="calendar">
+        <NativeTabs.Trigger.Label>Calendar</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="compare">
+        <NativeTabs.Trigger.Label>Compare</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
+          sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }}
+          md="bar_chart"
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="passport">
+        <NativeTabs.Trigger.Label>Passport</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'doc.text', selected: 'doc.text.fill' }}
+          md="verified_user"
         />
       </NativeTabs.Trigger>
     </NativeTabs>
