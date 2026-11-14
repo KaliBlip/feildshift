@@ -1,0 +1,143 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "workspace": "Decision Studio",
+    "officer": "Extension Officer",
+    "smsUssd": "SMS / USSD Mock",
+    "openStudio": "Open Studio",
+    "syncOnline": "Live Connected",
+    "syncOffline": "Offline Cache",
+    "pendingQueue": "{count} queued",
+    "languageLabel": "Language"
+  },
+  "hero": {
+    "eyebrow": "Informed by NASA Earth Observations",
+    "titleLead": "Agriculture,",
+    "titleEmphasis": "Informed by Earth.",
+    "subtitle": "ScalarField translates NASA Earth observations, multi-criteria decision analysis, and evidence transparency into clear Ashanti crop-rotation intelligence — online or offline.",
+    "ctaPrimary": "Launch Decision Studio",
+    "ctaSecondary": "Try *920*44# SMS/USSD",
+    "ctaOfficer": "Extension Officer Portal",
+    "scroll": "Scroll",
+    "aboutLabel": "Our Approach",
+    "aboutTitle": "Four pillars. One clear picture.",
+    "aboutSubtitle": "Satellite trends, honest pixel scale, and farmer priorities combined into decisions verified by local agronomists."
+  },
+  "workspace": {
+    "badge": "Ashanti Pilot Corridor · 5 Core Cells (50 × 50 km)",
+    "title": "Field Shift Decision Studio",
+    "subtitle": "Explore bare-field seasons, check satellite pixel scale against your farm size, stress-test crop rotations against climate analogs, and inspect Evidence Passports.",
+    "printSummary": "Print Field Summary",
+    "sourceSupabase": "Live Supabase Sync",
+    "sourceCache": "Offline Cell Cache",
+    "sourceFixture": "Ashanti Pilot Fixture",
+    "tabs": {
+      "explore": "Map & Seasonal Calendar",
+      "compare": "Strategy Comparison & Stress Test",
+      "glossary": "Evidence & Glossary"
+    }
+  },
+  "scale": {
+    "label": "Scale Honesty Check",
+    "title": "Does the satellite pixel see your farm?",
+    "farmSizeLabel": "Your Farm Area (ha)",
+    "fieldScale": "Resolves Plot",
+    "subRegional": "Blends Neighbours",
+    "regionalContext": "Regional Context Only",
+    "honestyCallout": "At {farmHa} ha ({farmKm2} km²), a 10 km IMERG rain grid covers roughly {farmsCovered} farms of similar size. Verify storm timing locally."
+  },
+  "map": {
+    "label": "Spatial Map Explorer",
+    "title": "Ashanti Pilot Cells & Dekad Time Scrubber",
+    "layerLabel": "Map Layer",
+    "layers": {
+      "bare": "Bare-Field Exposure",
+      "moisture": "SMAP Moisture Anomaly",
+      "slope": "Slope & Erosion Risk",
+      "rain": "Seasonal Rainfall (mm)"
+    },
+    "dekadScrubber": "Time Scrubber (Dekad Window)",
+    "selectedCell": "Active Pilot Cell",
+    "elevation": "Elevation",
+    "slope": "Slope",
+    "soilTexture": "Soil Texture",
+    "soilPh": "Soil pH",
+    "cluster": "M2 Cluster",
+    "fallbackBadge": "Interactive Vector Grid Mode"
+  },
+  "calendar": {
+    "label": "Seasonal Vulnerability & Bare-Field Calendar",
+    "title": "12-Month Bimodal Rain, Greenness & Bare-Soil Risk",
+    "subtitle": "Click any month below to inspect decadal reliability, SMAP moisture anomaly, optical cloud QA tier, and local field guidance.",
+    "bareRiskBadge": "Bare-Soil Exposure Window",
+    "protectedBadge": "Active Vegetative Cover",
+    "rainLabel": "Rainfall (mm)",
+    "et0Label": "Reference ET0 (mm)",
+    "ndviLabel": "NDVI Greenness"
+  },
+  "compare": {
+    "label": "Decision Matrix & Climate Stress-Testing",
+    "title": "Rotation Strategy Comparison",
+    "prioritiesTitle": "1. Farm Context & Priorities",
+    "stressTitle": "2. Climate Stress-Test & Analog Replay",
+    "analogLabel": "Analog Season Presets",
+    "rainSlider": "Rainfall Perturbation",
+    "tempSlider": "Temperature Delta",
+    "resetStress": "Reset Baseline",
+    "viewCards": "Strategy Cards",
+    "viewTable": "Comparison Table",
+    "minimaxBadge": "Lowest Climate Regret",
+    "baselineBadge": "Current Baseline",
+    "baseScore": "Score",
+    "winProb": "Win Prob. (2k MC)",
+    "meanRank": "Mean Rank",
+    "worstCase": "Worst-Case Score",
+    "ureaSaved": "Urea Saved",
+    "bareAvoided": "Bare Days Avoided",
+    "openPassport": "Open Evidence Passport",
+    "logDecision": "Log This Strategy",
+    "sendToSms": "Preview Bilingual SMS",
+    "presetBalanced": "Balanced",
+    "presetWater": "Water-First",
+    "presetSoil": "Soil & Erosion",
+    "presetIncome": "Income Focus"
+  },
+  "passport": {
+    "dialogClose": "Close Passport",
+    "evidenceTier": "Evidence Tier",
+    "datasets": "Datasets Used",
+    "coverage": "Spatial-Temporal Coverage",
+    "method": "Method Applied",
+    "uncertainty": "Uncertainty & QA",
+    "scaleNote": "Scale-Honesty Note",
+    "gaps": "Known Information Gaps",
+    "localReview": "Required Local Agronomic Review"
+  },
+  "glossary": {
+    "label": "Plain-Language Scientific Glossary",
+    "title": "Key Terms Explained Clearly",
+    "subtitle": "Select any term to open an anchored explanation without leaving your workflow."
+  },
+  "officer": {
+    "label": "Governance-Gated Field Operations",
+    "title": "Extension Officer Portal",
+    "subtitle": "Role-protected workflow for logging farmer rotation decisions and grading outcome reports before M8 Bayesian model calibration.",
+    "roleStatusTitle": "Active Session & RLS Role Gate",
+    "roleFarmer": "Farmer (Submit ungraded outcomes & log farmer decisions)",
+    "roleOfficer": "MOFA Extension Officer (Grade outcomes & verify field logs)",
+    "roleAgronomist": "Senior Agronomist (Full M8 validation clearance)",
+    "logTab": "Log Field Decision",
+    "gradeTab": "Grade Field Outcomes",
+    "authLockedNotice": "Grading outcomes and approving M8 calibration requires an Extension Officer or Agronomist role (enforced in Postgres RLS via auth.jwt() -> app_metadata.role).",
+    "submitDecisionBtn": "Submit Decision Log",
+    "saveGradeBtn": "Save Officer Grade"
+  },
+  "sms": {
+    "label": "2G Low-Bandwidth Advisory",
+    "title": "SMS & USSD Feature-Phone Mock (*920*44#)",
+    "subtitle": "Simulate how farmers on non-smartphones receive localized Ashanti advisories via interactive USSD menus or compact (<320 char) bilingual SMS.",
+    "copySms": "Copy Bilingual SMS",
+    "copied": "Copied SMS to clipboard",
+    "generateTitle": "Configure Live Advisory"
+  }
+}
