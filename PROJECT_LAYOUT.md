@@ -54,6 +54,88 @@ Why the split matters: Vercel's current docs give Python functions a 500 MB unco
 
 `shared/test-vectors/scoring_basic.json` holds a deterministic example. Both implementations must reproduce `expected_base_scores` to 1e-9. Monte Carlo output is compared only within a statistical tolerance, because random generators differ between languages. The numbers in the fixture are illustrative, not real agronomic scores.
 
+## Developer Setup (macOS & Linux)
+
+### 1. Python 3.12 Virtual Environment (`.venv`)
+
+Use **Python 3.12** (matching `apps/api/.python-version` for Vercel and ensuring prebuilt binary wheels on macOS and Linux for `rasterio`, `geopandas`, `pyproj`, `netCDF4`, `scipy`, `scikit-learn`, `lightgbm`, `shap`, and `aquacrop`). Newer Python versions such as `3.14` may lack prebuilt wheels for parts of the geospatial/ML stack.
+
+#### Step 1 — Install Python 3.12 (or skip to Option B using `uv`)
+
+- **macOS (primary developer):**
+
+  ```bash
+  # Check if Python 3.12 is already installed:
+  python3.12 --version
+
+  # If missing, install via Homebrew (on Intel Macs, prefer `uv` below if Homebrew falls back to compiling from source):
+  brew install python@3.12
+  ```
+
+- **Linux (second developer):**
+
+  ```bash
+  # Ubuntu / Debian (24.04+ ships 3.12; on 22.04/older, add deadsnakes first: sudo add-apt-repository ppa:deadsnakes/ppa)
+  sudo apt update
+  sudo apt install -y python3.12 python3.12-venv python3.12-dev build-essential
+
+  # Fedora / RHEL:
+  # sudo dnf install -y python3.12 python3.12-devel gcc gcc-c++
+
+  # Arch Linux (prefer `uv` or pyenv if repos only ship newer Python):
+  # sudo pacman -S --needed base-devel
+  ```
+
+  *(Including `python3.12-venv`, `python3.12-dev`, and `build-essential`/`gcc` ensures `venv` creation works and any fallback source builds such as `cryptography` or `argon2-cffi-bindings` succeed on Linux.)*
+
+#### Step 2 — Create `.venv`, install packages, and verify
+
+**Option A — Standard `venv` + `pip` (macOS & Linux):**
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+
+python -m pip install --upgrade pip
+# Full setup (FastAPI decision service + offline ML/geospatial pipeline):
+pip install -r apps/api/requirements.txt -r pipeline/requirements.txt
+# Or API-only lightweight setup:
+# pip install -r apps/api/requirements.txt pytest
+
+python --version                 # Expected: Python 3.12.x
+pytest -v apps/api/tests/test_scoring.py
+```
+
+**Option B — `uv` (recommended on Linux & Intel macOS; fetches Python 3.12 automatically without system packages):**
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+
+uv venv .venv --python 3.12
+source .venv/bin/activate
+
+uv pip install -r apps/api/requirements.txt -r pipeline/requirements.txt
+python --version
+pytest -v apps/api/tests/test_scoring.py
+```
+
+> **Note:** `.venv/` is listed in `.gitignore` and must never be committed.
+
+### 2. Web (`apps/web`) and Mobile (`apps/mobile`)
+
+```bash
+# Web (Next.js)
+npm --prefix apps/web install
+npm --prefix apps/web test
+npm --prefix apps/web run dev
+
+# Mobile (React Native / Expo SDK 58)
+npm --prefix apps/mobile install
+npm --prefix apps/mobile test
+npm --prefix apps/mobile start
+```
+
 ## Not included yet
 
 - Supabase schema and row-level security policies.
