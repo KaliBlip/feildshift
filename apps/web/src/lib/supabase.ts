@@ -1,310 +1,136 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json | undefined };
+type Table<Row> = {
+  Row: Row;
+  Insert: Partial<Row>;
+  Update: Partial<Row>;
+  Relationships: [];
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-  );
-}
+type PilotCell = {
+  cell_id: string;
+  region_name: string;
+  row_idx: number;
+  col_idx: number;
+  centre_lat: number;
+  centre_lon: number;
+  geom: unknown;
+  centroid: unknown;
+  elevation_m: number | null;
+  slope_pct: number | null;
+  soil_texture: string | null;
+  soil_organic_carbon_g_kg: number | null;
+  soil_ph: number | null;
+  native_resolutions_km: Json;
+  created_at: string;
+};
 
-export const createClient = () =>
-  createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey);
+type DekadTimeseries = {
+  cell_id: string;
+  year: number;
+  dekad: number;
+  start_date: string;
+  end_date: string;
+  rain_imerg_mm: number | null;
+  rain_era5_mm: number | null;
+  smap_sm_m3m3: number | null;
+  smap_anomaly_z: number | null;
+  ndvi_raw: number | null;
+  ndvi_smooth: number | null;
+  optical_valid_frac: number | null;
+  lst_max_c: number | null;
+  et0_mm: number | null;
+  water_balance_mm: number | null;
+  bare_field_flag: boolean;
+  qa_tier: string;
+  provenance_id: string | null;
+};
+
+type SeasonFeatures = {
+  cell_id: string;
+  year: number;
+  season: string;
+  onset_dekad: number | null;
+  cessation_dekad: number | null;
+  total_rain_mm: number | null;
+  rain_cv: number | null;
+  longest_dry_spell_days: number | null;
+  heavy_rain_days: number | null;
+  heat_stress_days: number | null;
+  mean_sm_anomaly_z: number | null;
+  ndvi_peak: number | null;
+  bare_period_fraction: number | null;
+  erosion_exposure_index: number | null;
+  anomaly_score_m1: number | null;
+  is_anomalous_season: boolean;
+  cluster_id_m2: number | null;
+  cluster_label_m2: string | null;
+  trend_sen_slope_mm_yr: number | null;
+  created_at: string;
+};
+
+type EvidencePassport = {
+  passport_id: string;
+  cell_id: string;
+  strategy_code: string;
+  evidence_tier: string;
+  observation_summary: string;
+  datasets_used: Json;
+  spatial_temporal_coverage: Json;
+  method_applied: string;
+  key_finding: string;
+  uncertainty_summary: string;
+  scale_honesty_note: string;
+  information_gaps: string[];
+  required_local_review: string[];
+  validator_roles: string[];
+  created_at: string;
+};
+
+type StrategyScore = {
+  cell_id: string;
+  strategy_code: string;
+  strategy_name: string;
+  rotation_sequence: string;
+  is_baseline: boolean;
+  criteria: string[];
+  criterion_scores: number[];
+  score_uncertainties: number[];
+  default_weights: number[];
+  default_base_score: number;
+  default_prob_first: number;
+  default_mean_rank: number;
+  expected_benefits: string[];
+  information_gaps: string[];
+  risks_needing_review: string[];
+  passport_id: string | null;
+  updated_at: string;
+};
 
 export type Database = {
   public: {
     Tables: {
-      pilot_cells: {
-        Row: {
-          id: string;
-          name: string;
-          geometry: unknown;
-          center_lat: number;
-          center_lon: number;
-          area_ha: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          name: string;
-          geometry: unknown;
-          center_lat: number;
-          center_lon: number;
-          area_ha: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          name?: string;
-          geometry?: unknown;
-          center_lat?: number;
-          center_lon?: number;
-          area_ha?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      dekad_timeseries: {
-        Row: {
-          id: string;
-          pilot_cell_id: string;
-          dekad: string;
-          rainfall_mm: number | null;
-          soil_moisture: number | null;
-          ndvi: number | null;
-          lst_c: number | null;
-          et0_mm: number | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          pilot_cell_id: string;
-          dekad: string;
-          rainfall_mm?: number | null;
-          soil_moisture?: number | null;
-          ndvi?: number | null;
-          lst_c?: number | null;
-          et0_mm?: number | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          pilot_cell_id?: string;
-          dekad?: string;
-          rainfall_mm?: number | null;
-          soil_moisture?: number | null;
-          ndvi?: number | null;
-          lst_c?: number | null;
-          et0_mm?: number | null;
-          created_at?: string;
-        };
-      };
-      season_features: {
-        Row: {
-          id: string;
-          pilot_cell_id: string;
-          season: string;
-          onset_dekad: number | null;
-          total_rainfall_mm: number | null;
-          rainfall_cv: number | null;
-          longest_dry_spell: number | null;
-          heavy_rain_days: number | null;
-          heat_stress_days: number | null;
-          mean_soil_moisture: number | null;
-          soil_moisture_anomaly: number | null;
-          mean_ndvi: number | null;
-          ndvi_anomaly: number | null;
-          bare_period_fraction: number | null;
-          slope_deg: number | null;
-          erosion_exposure: number | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          pilot_cell_id: string;
-          season: string;
-          onset_dekad?: number | null;
-          total_rainfall_mm?: number | null;
-          rainfall_cv?: number | null;
-          longest_dry_spell?: number | null;
-          heavy_rain_days?: number | null;
-          heat_stress_days?: number | null;
-          mean_soil_moisture?: number | null;
-          soil_moisture_anomaly?: number | null;
-          mean_ndvi?: number | null;
-          ndvi_anomaly?: number | null;
-          bare_period_fraction?: number | null;
-          slope_deg?: number | null;
-          erosion_exposure?: number | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          pilot_cell_id?: string;
-          season?: string;
-          onset_dekad?: number | null;
-          total_rainfall_mm?: number | null;
-          rainfall_cv?: number | null;
-          longest_dry_spell?: number | null;
-          heavy_rain_days?: number | null;
-          heat_stress_days?: number | null;
-          mean_soil_moisture?: number | null;
-          soil_moisture_anomaly?: number | null;
-          mean_ndvi?: number | null;
-          ndvi_anomaly?: number | null;
-          bare_period_fraction?: number | null;
-          slope_deg?: number | null;
-          erosion_exposure?: number | null;
-          created_at?: string;
-        };
-      };
-      strategy_scores: {
-        Row: {
-          id: string;
-          pilot_cell_id: string;
-          season: string;
-          strategy_name: string;
-          water_efficiency: number;
-          soil_health: number;
-          erosion_protection: number;
-          income_market: number;
-          base_score: number;
-          probability_first: number;
-          mean_rank: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          pilot_cell_id: string;
-          season: string;
-          strategy_name: string;
-          water_efficiency: number;
-          soil_health: number;
-          erosion_protection: number;
-          income_market: number;
-          base_score: number;
-          probability_first: number;
-          mean_rank: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          pilot_cell_id?: string;
-          season?: string;
-          strategy_name?: string;
-          water_efficiency?: number;
-          soil_health?: number;
-          erosion_protection?: number;
-          income_market?: number;
-          base_score?: number;
-          probability_first?: number;
-          mean_rank?: number;
-          created_at?: string;
-        };
-      };
-      evidence_passports: {
-        Row: {
-          id: string;
-          pilot_cell_id: string;
-          season: string;
-          strategy_name: string;
-          evidence_tier: string;
-          datasets: string[];
-          coverage: number;
-          method: string;
-          uncertainty: number;
-          gaps: string[];
-          required_local_review: string[];
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          pilot_cell_id: string;
-          season: string;
-          strategy_name: string;
-          evidence_tier: string;
-          datasets: string[];
-          coverage: number;
-          method: string;
-          uncertainty: number;
-          gaps: string[];
-          required_local_review: string[];
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          pilot_cell_id?: string;
-          season?: string;
-          strategy_name?: string;
-          evidence_tier?: string;
-          datasets?: string[];
-          coverage?: number;
-          method?: string;
-          uncertainty?: number;
-          gaps?: string[];
-          required_local_review?: string[];
-          created_at?: string;
-        };
-      };
-      decision_logs: {
-        Row: {
-          id: string;
-          pilot_cell_id: string;
-          season: string;
-          user_id: string;
-          selected_strategy: string;
-          priority_weights: Record<string, number>;
-          notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          pilot_cell_id: string;
-          season: string;
-          user_id: string;
-          selected_strategy: string;
-          priority_weights: Record<string, number>;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          pilot_cell_id?: string;
-          season?: string;
-          user_id?: string;
-          selected_strategy?: string;
-          priority_weights?: Record<string, number>;
-          notes?: string | null;
-          created_at?: string;
-        };
-      };
-      outcome_reports: {
-        Row: {
-          id: string;
-          pilot_cell_id: string;
-          season: string;
-          user_id: string;
-          actual_outcome: string;
-          yield_estimate: number | null;
-          feedback_notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          pilot_cell_id: string;
-          season: string;
-          user_id: string;
-          actual_outcome: string;
-          yield_estimate?: number | null;
-          feedback_notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          pilot_cell_id?: string;
-          season?: string;
-          user_id?: string;
-          actual_outcome?: string;
-          yield_estimate?: number | null;
-          feedback_notes?: string | null;
-          created_at?: string;
-        };
-      };
+      pilot_cells: Table<PilotCell>;
+      dekad_timeseries: Table<DekadTimeseries>;
+      season_features: Table<SeasonFeatures>;
+      evidence_passports: Table<EvidencePassport>;
+      strategy_scores: Table<StrategyScore>;
+      decision_logs: Table<Record<string, Json>>;
+      outcome_reports: Table<Record<string, Json>>;
     };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      [_ in never]: never;
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 };
+
+export function createClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+
+  return createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey);
+}

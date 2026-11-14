@@ -1244,3 +1244,332 @@ body {
     transform: none;
   }
 }
+
+/* ─── Strategy Comparison & Evidence Passport ─────────────────────────── */
+.decision-section {
+  background: var(--surface);
+}
+
+.decision-source {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  color: var(--forest);
+  background: #f0f7f1;
+  font-size: 0.875rem;
+}
+
+.decision-source.is-fixture {
+  border-color: #e8d39b;
+  color: #60491c;
+  background: #fff8e6;
+}
+
+.strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.strategy-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: 0 8px 26px rgb(26 61 40 / 5%);
+}
+
+.strategy-card.is-baseline {
+  border-color: #9fbba4;
+  box-shadow: inset 0 3px 0 var(--forest-mid), 0 8px 26px rgb(26 61 40 / 5%);
+}
+
+.strategy-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.strategy-card-heading h3 {
+  margin-top: 0.45rem;
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.strategy-sequence {
+  margin-top: 0.35rem;
+  color: var(--fg-muted);
+  font-size: 0.875rem;
+}
+
+.strategy-badge,
+.passport-tier {
+  display: inline-flex;
+  border-radius: 100px;
+  padding: 0.3rem 0.65rem;
+  color: var(--forest);
+  background: var(--sage-pale);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.strategy-score {
+  flex: 0 0 auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.strategy-score strong {
+  display: block;
+  color: var(--forest);
+  font-size: 1.75rem;
+  line-height: 1.15;
+}
+
+.strategy-score span,
+.strategy-rank p {
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+}
+
+.strategy-rank,
+.strategy-criteria,
+.strategy-card-lists {
+  margin-top: 1.35rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--border);
+}
+
+.strategy-rank-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.strategy-rank-label strong {
+  color: var(--forest);
+  font-variant-numeric: tabular-nums;
+}
+
+.strategy-rank-track,
+.criterion-track {
+  display: block;
+  overflow: hidden;
+  border-radius: 100px;
+  background: #e7eee8;
+}
+
+.strategy-rank-track {
+  height: 0.6rem;
+  margin-top: 0.55rem;
+}
+
+.strategy-rank-track span,
+.criterion-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--forest-mid), #78a97d);
+}
+
+.strategy-rank p {
+  margin-top: 0.4rem;
+}
+
+.strategy-criteria h4,
+.strategy-card-lists h4,
+.passport-checklists h4 {
+  margin-bottom: 0.65rem;
+  color: var(--forest);
+  font-size: 0.875rem;
+}
+
+.criterion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(4rem, 0.8fr) 2.5rem;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.55rem;
+  font-size: 0.75rem;
+}
+
+.criterion-track {
+  height: 0.4rem;
+}
+
+.criterion-row strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.strategy-card-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  flex: 1;
+}
+
+.strategy-card-lists ul,
+.passport-checklists ul {
+  padding-left: 1.1rem;
+  color: var(--fg-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.strategy-card-lists li + li,
+.passport-checklists li + li {
+  margin-top: 0.45rem;
+}
+
+.passport-open-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  color: var(--forest);
+  background: #fff;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.passport-open-button:hover:not(:disabled) {
+  border-color: var(--forest-mid);
+  background: var(--sage-pale);
+}
+
+.passport-open-button:disabled {
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+.decision-method-note,
+.decision-empty {
+  margin-top: 1.25rem;
+  color: var(--fg-muted);
+  font-size: 0.875rem;
+}
+
+.decision-empty {
+  padding: 2rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-card);
+  background: #fff;
+}
+
+.decision-empty h3 {
+  margin-bottom: 0.4rem;
+  color: var(--forest);
+}
+
+.passport-dialog {
+  width: min(100%, 760px);
+  max-height: min(90vh, 900px);
+  overflow: auto;
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  border: 0;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 25%);
+}
+
+.passport-dialog::backdrop {
+  background: rgb(7 20 12 / 65%);
+}
+
+.passport-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.passport-dialog-header h3 {
+  margin-top: 0.4rem;
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+}
+
+.passport-close {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--forest);
+  background: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.passport-tier {
+  margin-top: 1rem;
+}
+
+.passport-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.passport-facts dt {
+  margin-bottom: 0.2rem;
+  color: var(--forest);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.passport-facts dd,
+.passport-checklists p {
+  color: var(--fg-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.passport-checklists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.passport-roles {
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 760px) {
+  .strategy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .strategy-card-lists,
+  .passport-facts,
+  .passport-checklists {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .criterion-row {
+    grid-template-columns: minmax(0, 1fr) 4rem 2.5rem;
+  }
+}

@@ -7,7 +7,9 @@ Installable Next.js (App Router, TypeScript, Tailwind CSS) web application for f
 - **Implemented now:**
   - Deterministic weighted-sum scoring (`baseScores`) and Monte Carlo rank-stability simulation (`rankProbabilities`) in `src/lib/scoring.ts`.
   - Cross-language parity unit tests in `src/lib/scoring.test.ts` validating `1e-9` agreement against `../../shared/test-vectors/scoring_basic.json`.
-  - Starter Field Shift landing page (`src/app/page.tsx`) rendering system module cards, a responsive comparison matrix, and an Evidence Passport / scale-honesty disclosure using accessible HTML semantics and container queries.
+  - Strategy comparison cards for a baseline and Strategies A–C, including weighted criteria scores, Monte Carlo rank probabilities, benefits, gaps, and risks.
+  - Evidence Passport dialogs and interactive inline glossary explanations.
+  - Supabase reads aligned with `supabase/migrations/20261114000000_phase1_schema.sql`; without configured/available Supabase, the decision UI uses clearly labelled illustrative fixtures. Map tiles remain illustrative placeholders.
 - **Planned feature set (below):** Core hackathon screens and stretch capabilities compiled from `README.md`, `dev-docs/Field Shift ML Workflow.md`, and `dev-docs/Field_Shift_Team_Stack_Plan.xlsx`.
 
 ---
