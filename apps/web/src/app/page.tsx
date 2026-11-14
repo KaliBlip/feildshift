@@ -1,5 +1,14 @@
 "use client";
+
 import { useEffect, useRef, useState } from "react";
+import { SeasonalVulnerabilityCalendar } from "@/components/calendar";
+import { MapExplorer } from "@/components/map";
+import { ScaleHonestyBanner } from "@/components/scale-honesty";
+import { StrategyComparisonSection } from "@/components/decision/StrategyComparisonSection";
+import { Glossary, GlossaryTooltipTrigger, InlineGlossary } from "@/components/ui";
+import { dataAccess } from "@/lib/data-access";
+import { calendarFixtures, mapFixtures, scaleHonestyFixtures } from "@/lib/fixtures";
+import type { CalendarData, MapData } from "@/lib/data-access";
 
 /* ─── Inline SVG Icons ──────────────────────────────────────────────── */
 function IconSatellite({ size = 24 }: { size?: number }) {
@@ -45,6 +54,33 @@ function IconArrow({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 10h12M11 5l5 5-5 5" />
+    </svg>
+  );
+}
+
+function IconGlobe({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20" />
+    </svg>
+  );
+}
+
+function IconRuler({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3h18v18H3z" />
+      <path d="M3 9h18M9 3v18" />
+    </svg>
+  );
+}
+
+function IconBook({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
   );
 }
@@ -252,6 +288,9 @@ function Nav() {
           <li><a href="#about" onClick={() => setMenuOpen(false)}>About</a></li>
           <li><a href="#approach" onClick={() => setMenuOpen(false)}>Our Approach</a></li>
           <li><a href="#science" onClick={() => setMenuOpen(false)}>Data & Science</a></li>
+          <li><a href="#strategies" onClick={() => setMenuOpen(false)}>Strategies</a></li>
+          <li><a href="#calendar" onClick={() => setMenuOpen(false)}>Vulnerability Calendar</a></li>
+          <li><a href="#map" onClick={() => setMenuOpen(false)}>Map Explorer</a></li>
           <li className="nav-mobile-signin">
             <a href="mailto:hello@scalarfield.io?subject=ScalarField%20account%20access" onClick={() => setMenuOpen(false)}>
               Sign In
@@ -493,6 +532,224 @@ function Approach() {
   );
 }
 
+/* ─── Seasonal Vulnerability Calendar ───────────────────────────────── */
+function VulnerabilityCalendarSection() {
+  const [calendarData, setCalendarData] = useState<CalendarData>(calendarFixtures);
+  const [loading, setLoading] = useState(true);
+  const [selectedDekad, setSelectedDekad] = useState<string | null>(null);
+  const [usingFixtures, setUsingFixtures] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const data = await dataAccess.fetchCalendarData();
+        setCalendarData(data);
+        setUsingFixtures(data.source === "fixtures");
+      } catch (error) {
+        console.error("Failed to load calendar data:", error);
+        setCalendarData({ ...calendarFixtures, loadingState: "error", errorMessage: "Failed to load data" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleDekadSelect = (dekad: string | null) => {
+    setSelectedDekad(dekad);
+  };
+
+  return (
+    <section className="calendar-section section" id="calendar" aria-labelledby="calendar-heading">
+      <div className="container">
+        <div className="section-header">
+          <span className="label">Environmental Intelligence</span>
+          <div className="section-divider" />
+          <h2 id="calendar-heading" className="display-lg">
+            Seasonal Vulnerability & Bare-Field Calendar
+          </h2>
+          <p className="body-lg">
+            Explore dekad-by-dekad environmental conditions across the agricultural season.
+            <InlineGlossary term="Dekad">dekads</InlineGlossary> (10-day periods) reveal how
+            <InlineGlossary term="Rainfall reliability">rainfall reliability</InlineGlossary>,
+            <InlineGlossary term="Soil moisture anomaly">soil moisture</InlineGlossary>,
+            <InlineGlossary term="NDVI">vegetation cover</InlineGlossary>,
+            <InlineGlossary term="Heat stress">heat stress</InlineGlossary>, and
+            <InlineGlossary term="Bare-field period">bare-field exposure</InlineGlossary>
+            evolve throughout the year.
+          </p>
+        </div>
+
+        <div className="data-source-badge">
+          {usingFixtures ? (
+            <span className="fixture-badge">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="7" cy="7" r="6" />
+                <path d="M7 4v6M4 7h6" />
+              </svg>
+              Illustrative fixture data — not real observations
+            </span>
+          ) : (
+            <span className="live-badge">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                <circle cx="7" cy="7" r="7" />
+              </svg>
+              Live Supabase data
+            </span>
+          )}
+        </div>
+
+        <SeasonalVulnerabilityCalendar
+          observations={calendarData.observations}
+          seasons={calendarData.seasons}
+          anomalies={calendarData.anomalies}
+          bareFieldPeriods={calendarData.bareFieldPeriods}
+          loadingState={calendarData.loadingState}
+          errorMessage={calendarData.errorMessage}
+          selectedDekad={selectedDekad}
+          onSelectDekad={handleDekadSelect}
+          farmAreaHa={calendarData.farmAreaHa}
+          farmLabel={calendarData.farmLabel}
+        />
+      </div>
+    </section>
+  );
+}
+
+/* ─── Interactive Map Explorer ──────────────────────────────────────── */
+function MapExplorerSection() {
+  const [mapData, setMapData] = useState<MapData>(mapFixtures);
+  const [loading, setLoading] = useState(true);
+  const [enabledLayers, setEnabledLayers] = useState<("ndvi" | "soil-moisture" | "rainfall" | "srtm")[]>([...mapFixtures.enabledLayers]);
+  const [selectedTimeStep, setSelectedTimeStep] = useState(mapFixtures.selectedTimeStep);
+  const [viewport, setViewport] = useState({ center: mapFixtures.center, zoom: mapFixtures.zoom });
+  const [usingFixtures, setUsingFixtures] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const data = await dataAccess.fetchMapData();
+        setMapData(data);
+        setUsingFixtures(data.source === "fixtures");
+      } catch (error) {
+        console.error("Failed to load map data:", error);
+        setMapData({ ...mapFixtures, loadingState: "error", errorMessage: "Failed to load map" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const handleLayerToggle = (layerId: string, enabled?: boolean) => {
+    if (layerId !== "ndvi" && layerId !== "soil-moisture" && layerId !== "rainfall" && layerId !== "srtm") return;
+    const selectedLayer = layerId;
+    setEnabledLayers((prev) => {
+      const shouldEnable = enabled ?? !prev.includes(selectedLayer);
+      if (shouldEnable) return prev.includes(selectedLayer) ? prev : [...prev, selectedLayer];
+      return prev.filter((layer) => layer !== selectedLayer);
+    });
+  };
+
+  const handleTimeChange = (timeStep: typeof selectedTimeStep) => {
+    setSelectedTimeStep(timeStep);
+  };
+
+  const handleViewportChange = (newViewport: { center: [number, number]; zoom: number }) => {
+    setViewport(newViewport);
+  };
+
+  return (
+    <section className="map-section section" id="map" aria-labelledby="map-heading">
+      <div className="container">
+        <div className="section-header">
+          <span className="label">Environmental Intelligence</span>
+          <div className="section-divider" />
+          <h2 id="map-heading" className="display-lg">
+            Interactive Map Explorer
+          </h2>
+          <p className="body-lg">
+            Explore environmental conditions spatially across the pilot area. Toggle
+            <GlossaryTooltipTrigger term="NDVI">NDVI</GlossaryTooltipTrigger>,
+            <GlossaryTooltipTrigger term="Soil moisture anomaly">soil moisture</GlossaryTooltipTrigger>,
+            <GlossaryTooltipTrigger term="Rainfall reliability">rainfall</GlossaryTooltipTrigger>, and
+            <GlossaryTooltipTrigger term="Spatial resolution">terrain</GlossaryTooltipTrigger>
+            layers, and scrub through time to see how conditions change.
+          </p>
+        </div>
+
+        <div className="data-source-badge">
+          {usingFixtures ? (
+            <span className="fixture-badge">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="7" cy="7" r="6" />
+                <path d="M7 4v6M4 7h6" />
+              </svg>
+              Illustrative fixture data — tile layers are placeholders
+            </span>
+          ) : (
+            <span className="live-badge">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                <circle cx="7" cy="7" r="7" />
+              </svg>
+              Live Supabase data
+            </span>
+          )}
+        </div>
+
+        <MapExplorer
+          center={viewport.center}
+          zoom={viewport.zoom}
+          layers={mapData.layers}
+          timeSteps={mapData.timeSteps}
+          loadingState={mapData.loadingState}
+          errorMessage={mapData.errorMessage}
+          farmBoundary={mapData.farmBoundary}
+          farmAreaHa={mapData.farmAreaHa}
+          onLayerToggle={handleLayerToggle}
+          onTimeChange={handleTimeChange}
+          onViewportChange={handleViewportChange}
+          enabledLayers={enabledLayers}
+          selectedTimeStep={selectedTimeStep}
+        />
+
+        <ScaleHonestyBanner
+          assessments={scaleHonestyFixtures(mapData.farmAreaHa || 42.5)}
+          farmAreaHa={mapData.farmAreaHa}
+          farmLabel={mapData.farmBoundary?.properties?.name as string}
+          selectedLayerId={enabledLayers[0]}
+          onLayerSelect={handleLayerToggle}
+        />
+      </div>
+    </section>
+  );
+}
+
+/* ─── Agricultural Glossary ─────────────────────────────────────────── */
+function GlossarySection() {
+  return (
+    <section className="glossary-section section" id="glossary" aria-labelledby="glossary-heading">
+      <div className="container">
+        <div className="section-header">
+          <span className="label">Reference</span>
+          <div className="section-divider" />
+          <h2 id="glossary-heading" className="display-lg">
+            Plain-Language Agricultural Glossary
+          </h2>
+          <p className="body-lg">
+            Technical terms used throughout this platform, explained in plain language
+            for farmers, extension officers, and decision-makers.
+          </p>
+        </div>
+
+        <Glossary />
+      </div>
+    </section>
+  );
+}
+
 /* ─── CTA & Footer ──────────────────────────────────────────────────── */
 function ClosingCTA() {
   const ref = useRef<HTMLElement>(null);
@@ -546,6 +803,10 @@ function ClosingCTA() {
             <li><a href="#about">About</a></li>
             <li><a href="#approach">Approach</a></li>
             <li><a href="#science">Science</a></li>
+            <li><a href="#strategies">Strategies</a></li>
+            <li><a href="#calendar">Calendar</a></li>
+            <li><a href="#map">Map</a></li>
+            <li><a href="#glossary">Glossary</a></li>
             <li><a href="mailto:hello@scalarfield.io">Contact</a></li>
           </ul>
           <p className="footer-credit">
@@ -567,6 +828,10 @@ export default function LandingPage() {
         <Hero />
         <Challenge />
         <Approach />
+        <StrategyComparisonSection />
+        <VulnerabilityCalendarSection />
+        <MapExplorerSection />
+        <GlossarySection />
       </main>
       <ClosingCTA />
     </>
