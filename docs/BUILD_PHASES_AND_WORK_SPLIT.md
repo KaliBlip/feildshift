@@ -61,7 +61,7 @@
 | Owner | Status | Tasks | Deliverables |
 | --- | --- | --- | --- |
 | **`kaliblip`** | ✅ Done | - [x] Build `pipeline/src/fieldshift/features/seasonal.py` (rainfall onset/cessation, total/CV, longest dry spell, heavy-rain days, heat-stress days, FAO-56 Hargreaves ET0, bare-period fraction, slope, erosion exposure).<br>- [x] Implement **M1** (`anomaly.py`), **M2** (`clustering.py`), **M3** (`phenology.py`), and **M4** (`trends.py`) in `pipeline/src/fieldshift/models/`.<br>- [x] Populate cited Ashanti crop & rotation parameter CSVs in `knowledge/crops_ashanti.csv` and `knowledge/rotations_ashanti.csv`. | Feature tables, M1–M4 outputs, and cited `knowledge/*.csv` tables (`test_phase2_features_models.py` passing). |
-| **`OdinID-CS`** | ⬜ Pending | - [ ] Build the **Seasonal Vulnerability & Bare-Field Calendar** component in `apps/web` using Recharts.<br>- [ ] Build the **Interactive Map Explorer** using MapLibre GL (`react-map-gl`) with layer toggles and time scrubbing.<br>- [ ] Implement the **Scale-Honesty Banner** comparing each dataset's native resolution against the user's farm area. | Vulnerability Calendar, MapLibre map explorer, and Scale-Honesty UI in `apps/web`. |
+| **`OdinID-CS`** *(built w/ `kaliblip`)* | ✅ Done | - [x] Build the **Seasonal Vulnerability & Bare-Field Calendar** component in `apps/web` using Recharts (`src/components/VulnerabilityCalendar.tsx`).<br>- [x] Build the **Interactive Map Explorer** using MapLibre GL (`maplibre-gl` in `src/components/AshantiMapExplorer.tsx`) with layer toggles, time scrubbing, and vector fallback.<br>- [x] Implement the **Scale-Honesty Banner** (`src/components/ScaleHonestyBanner.tsx`) comparing each dataset's native resolution against the user's farm area. | Vulnerability Calendar, MapLibre map explorer, and Scale-Honesty UI in `apps/web`. |
 
 ---
 
@@ -70,7 +70,7 @@
 | Owner | Status | Tasks | Deliverables |
 | --- | --- | --- | --- |
 | **`kaliblip`** | ✅ Done | - [x] Implement **M6** (`pipeline/src/fieldshift/decision/m6_fusion.py`) combining `knowledge/*.csv` criteria with cell features.<br>- [x] Implement **M7** (`pipeline/src/fieldshift/evidence/m7_passport.py`) deterministic Evidence Passport generator.<br>- [x] Publish precomputed pilot tables (`5` core cells, `720` dekad rows, `60` season features, `25` Evidence Passports, `25` strategy scores) into Supabase via `publish.py` with live `smap`, `smap_root_zone`, `modis_ndvi`, `nasa_power`, and `soilgrids` provenance.<br>- [x] Implement `apps/mobile` screens + PostgREST hydration (`src/lib/supabase.ts`, `src/hooks/use-pilot-state.tsx`). | Seeded Supabase pilot dataset + working `apps/mobile` core flow (`test_phase3_decision_evidence.py` passing). |
-| **`OdinID-CS`** | ⬜ Pending | - [ ] Connect `apps/web` to Supabase precomputed tables (`pilot_cells`, `dekad_timeseries`, `season_features`, `strategy_scores`, `evidence_passports`, plus offline fixture fallback).<br>- [ ] Build **Rotation Strategy Comparison Cards** displaying weighted scores, **Monte Carlo rank probabilities**, benefits, gaps, and risks.<br>- [ ] Build the **Evidence Passport** drawer/modal and **Plain-Language Glossary** tooltips. | End-to-end core decision UI in `apps/web`. |
+| **`OdinID-CS`** *(built w/ `kaliblip`)* | ✅ Done | - [x] Connect `apps/web` to Supabase precomputed tables (`pilot_cells`, `dekad_timeseries`, `season_features`, `strategy_scores`, `evidence_passports`, plus offline fixture fallback in `src/lib/supabase.ts`).<br>- [x] Build **Rotation Strategy Comparison Cards & Table** (`src/components/StrategyComparisonStudio.tsx`) displaying weighted scores, **Monte Carlo rank probabilities**, benefits, gaps, and risks.<br>- [x] Build the **Evidence Passport** modal (`src/components/EvidencePassportDialog.tsx`) and **Plain-Language Glossary** tooltips (`src/components/GlossaryPopoverBar.tsx`). | End-to-end core decision UI in `apps/web`. |
 
 ---
 
@@ -79,7 +79,7 @@
 | Owner | Status | Tasks | Deliverables |
 | --- | --- | --- | --- |
 | **`kaliblip`** | ✅ Done *(Stretch deferred)* | - [x] Export historical analog season presets (`driest`, `wettest`, `hottest`, `typical`) and climate perturbation curves (`pipeline/src/fieldshift/decision/stress_test.py`).<br>- [x] Expose `POST /api/stress-test` and `GET /api/analogs` in `apps/api/index.py`.<br>- [ ] *(Stretch, deferred)* Evaluate **M5** (AquaCrop-OSPy + quantile LightGBM surrogate) if serverless bundle size permits.<br>- [x] Add per-cell local offline cache (`src/lib/supabase.ts`, `src/hooks/use-pilot-state.tsx`) and Climate Stress-Test pills (`src/lib/stress.ts`, `src/app/compare.tsx`) on `apps/mobile`. | Analog season presets, climate stress endpoints, mobile stress UI & offline cell cache. |
-| **`OdinID-CS`** | ⬜ Pending | - [ ] Build **Climate Stress-Testing** controls in `apps/web` (rainfall/temperature sliders and analog season replay).<br>- [ ] Add printable / low-bandwidth one-page summary cards and PWA service-worker caching + offline queued outcome reports. | Interactive scenario sliders, analog replay, print view, and PWA caching in `apps/web`. |
+| **`OdinID-CS`** *(built w/ `kaliblip`)* | ✅ Done | - [x] Build **Climate Stress-Testing** controls in `apps/web` (rainfall/temperature sliders, analog season replay, and minimax regret in `src/lib/stress.ts` & `StrategyComparisonStudio.tsx`).<br>- [x] Add printable one-page summary cards (`@media print`) and PWA manifest/service-worker caching (`src/app/manifest.ts`, `public/sw.js`) + offline queued decision/outcome reports (`src/lib/supabase.ts`). | Interactive scenario sliders, analog replay, print view, and PWA caching in `apps/web`. |
 
 ---
 
@@ -88,7 +88,7 @@
 | Owner | Status | Tasks | Deliverables |
 | --- | --- | --- | --- |
 | **`kaliblip`** | ✅ Pipeline, Mobile & Docs Done | - [x] Run leave-one-year-out temporal CV, IMERG vs. ERA5 rainfall cross-checks, and M2 bootstrap cluster stability (`pipeline/src/fieldshift/models/validation.py`).<br>- [x] Add A1–A4 platform adoptions (`iSDAsoil` 30 m adapter, WaPOR `P/ET0` & deficit, EN + Twi SMS/WhatsApp summary export in `apps/mobile/src/lib/sms-export.ts`, and offline-queued `decision_logs`/`outcome_reports` sync in `apps/mobile/src/lib/supabase.ts`).<br>- [x] Add B1–B4 scientific advancements (Minimax Climate Regret in `stress_test.py`/FastAPI/`stress.ts`, M8 Normal-conjugate calibration in `models/feedback.py`, flash-drought decoupling detector in `seasonal.py`, and urea-bag N-fixation savings & bare-days avoided in `m6_fusion.py`).<br>- [x] Generate per-module model cards (`M1–M8`) in `docs/MODEL_CARDS.md` and pass `test_phase6_adoptions_advancements.py`.<br>- [ ] Verify full `apps/mobile` Expo device walkthrough against live Ashanti demo scenario alongside web app. | Validation & Phase 6 suite (`26` pytest + `3` mobile tests), `docs/MODEL_CARDS.md`; device demo QA pending. |
-| **`OdinID-CS`** | ⬜ Pending | - [ ] Add English & Twi translation support (`next-intl`).<br>- [ ] Build role-protected Extension Officer routes (decision logging + field outcome grading) and the **SMS / USSD web mock** for the demo.<br>- [ ] Deploy `apps/web` to Vercel (`Root Directory: apps/web`) and verify mobile responsiveness. | Deployed `apps/web` demo with Twi toggle, officer workflow, and SMS/USSD mock. |
+| **`OdinID-CS`** *(built w/ `kaliblip`)* | 🟡 Built / Deploy Pending | - [x] Add English & Twi translation support (`next-intl` in `src/i18n/messages/{en,tw}.json`, `I18nProvider.tsx`, `AppNav.tsx`).<br>- [x] Build role-protected Extension Officer routes (`src/app/officer/page.tsx`: decision logging + field outcome grading) and the **SMS / USSD web mock** (`src/app/sms-ussd/page.tsx`) for the demo.<br>- [ ] Deploy `apps/web` to Vercel (`Root Directory: apps/web`) and verify mobile responsiveness on hosted URL. | Web demo ready for Vercel deploy with Twi toggle, officer workflow, and SMS/USSD mock. |
 
 ---
 
@@ -96,7 +96,7 @@
 
 - [x] **`kaliblip`:** Implement lightweight conjugate Bayesian outcome calibration (**M8**, `pipeline/src/fieldshift/models/feedback.py`, governance-gated strictly to `officer_reviewed`/`expert_validated` grades) and mobile field outcome reporting (`apps/mobile/src/app/passport.tsx`).
 - [ ] **`kaliblip`:** Expand `pipeline/config/` to additional Ghanaian/West African regions and build native EAS mobile distribution.
-- [ ] **`OdinID-CS` + `kaliblip`:** Integrate live **Africa's Talking** SMS/USSD and WhatsApp Business APIs alongside officer-review dashboard routes.
+- [x] **`OdinID-CS` + `kaliblip`:** Integrate live **Africa's Talking** SMS/USSD and WhatsApp Business APIs alongside officer-review dashboard routes (`apps/web/src/app/api/ussd/route.ts`, `apps/web/src/app/api/whatsapp/webhook/route.ts`, `apps/web/src/app/api/messaging/dispatch/route.ts`, `apps/web/src/app/api/officer/review/route.ts`, `apps/web/src/lib/comms.ts`, `apps/web/src/lib/m8-calibration.ts`, wired into `/sms-ussd` and `/officer` with sandbox/simulated fallback).
 
 ---
 
