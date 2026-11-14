@@ -245,7 +245,7 @@ This is an evolving project. Planned capabilities should not be interpreted as c
 
 Challenge: *Field Shift: Adapting Farms with NASA Data*
 
-Location focus: Ejura-Sekyedumase, Ashanti Region, Ghana.
+
 
 ## 📚 Data & References
 
