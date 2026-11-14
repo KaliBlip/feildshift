@@ -1,4 +1,4 @@
-"""Data-source adapters (NASA POWER, earthaccess CMR) and Ashanti pilot generator."""
+"""Data-source adapters (NASA POWER, ISRIC SoilGrids, earthaccess CMR) and pilot generator."""
 from __future__ import annotations
 
 from typing import Any, Sequence
@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 
 import numpy as np
 import pandas as pd
+import requests
 
 from fieldshift.ingest.manifest import (
     DATASETS_REGISTRY,
@@ -15,6 +16,7 @@ from fieldshift.ingest.manifest import (
 )
 
 POWER_DAILY_BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
+SOILGRIDS_QUERY_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 DEFAULT_POWER_PARAMETERS: tuple[str, ...] = (
     "PRECTOTCORR",
     "T2M",
@@ -50,6 +52,147 @@ def build_power_request_url(
         "format": "JSON",
     }
     return f"{POWER_DAILY_BASE_URL}?{urlencode(params)}"
+
+
+def fetch_nasa_power_daily(
+    lat: float,
+    lon: float,
+    start_yyyymmdd: str,
+    end_yyyymmdd: str,
+    parameters: Sequence[str] = DEFAULT_POWER_PARAMETERS,
+    timeout: int = 20,
+    session: requests.Session | None = None,
+) -> tuple[pd.DataFrame, ProvenanceRecord]:
+    """Fetch daily agroclimatic observations from NASA POWER REST API."""
+    url = build_power_request_url(lat, lon, start_yyyymmdd, end_yyyymmdd, parameters)
+    client = session or requests
+    resp = client.get(url, timeout=timeout)
+    resp.raise_for_status()
+    payload = resp.json()
+
+    param_map: dict[str, dict[str, float]] = payload.get("properties", {}).get("parameter", {})
+    if not param_map:
+        raise ValueError("NASA POWER response missing properties.parameter")
+
+    all_dates = sorted({dt for series in param_map.values() for dt in series.keys()})
+    rows: list[dict[str, Any]] = []
+    for dt_key in all_dates:
+        row: dict[str, Any] = {"date": pd.to_datetime(dt_key, format="%Y%m%d")}
+        for p_name in parameters:
+            val = float(param_map.get(p_name, {}).get(dt_key, -999.0))
+            row[p_name.lower()] = np.nan if val <= -990.0 else val
+        rows.append(row)
+
+    df = pd.DataFrame(rows).rename(
+        columns={
+            "prectotcorr": "rain_power_mm",
+            "t2m": "tmean_c",
+            "t2m_max": "tmax_c",
+            "t2m_min": "tmin_c",
+            "allsky_sfc_sw_dwn": "solar_rad_mj_m2",
+            "rh2m": "rh_pct",
+        }
+    )
+    spec = DATASETS_REGISTRY["nasa_power"]
+    record = ProvenanceRecord(
+        dataset_key=spec.dataset_key,
+        short_name=spec.short_name,
+        product_version=spec.product_version,
+        retrieval_mode="live",
+        bbox=(round(lon - 0.25, 4), round(lat - 0.25, 4), round(lon + 0.25, 4), round(lat + 0.25, 4)),
+        temporal_range=(
+            f"{start_yyyymmdd[:4]}-{start_yyyymmdd[4:6]}-{start_yyyymmdd[6:]}",
+            f"{end_yyyymmdd[:4]}-{end_yyyymmdd[4:6]}-{end_yyyymmdd[6:]}",
+        ),
+        source_uri=url,
+        payload_sha256=compute_payload_sha256(payload),
+        record_count=len(df),
+    )
+    return df, record
+
+
+def classify_usda_texture(clay_pct: float, sand_pct: float) -> str:
+    """Assign a simplified USDA topsoil texture class from clay and sand percentages."""
+    silt_pct = max(0.0, 100.0 - clay_pct - sand_pct)
+    if clay_pct >= 40.0:
+        return "Clay"
+    if clay_pct >= 27.0 and sand_pct < 45.0:
+        return "Clay loam"
+    if clay_pct >= 20.0 and sand_pct >= 45.0:
+        return "Sandy clay loam"
+    if silt_pct >= 50.0 and clay_pct < 27.0:
+        return "Silt loam"
+    if sand_pct >= 70.0 and clay_pct < 15.0:
+        return "Sandy loam"
+    if sand_pct >= 52.0:
+        return "Sandy loam"
+    return "Loam"
+
+
+def fetch_soilgrids_point(
+    lat: float,
+    lon: float,
+    timeout: int = 20,
+    session: requests.Session | None = None,
+) -> tuple[dict[str, Any], ProvenanceRecord]:
+    """Query ISRIC SoilGrids v2.0 (0-5 cm mean) for Ashanti/global baseline soil properties."""
+    params = [
+        ("lon", f"{lon:.4f}"),
+        ("lat", f"{lat:.4f}"),
+        ("property", "phh2o"),
+        ("property", "soc"),
+        ("property", "clay"),
+        ("property", "sand"),
+        ("property", "silt"),
+        ("depth", "0-5cm"),
+        ("value", "mean"),
+    ]
+    client = session or requests
+    resp = client.get(SOILGRIDS_QUERY_URL, params=params, timeout=timeout)
+    resp.raise_for_status()
+    payload = resp.json()
+
+    layers = payload.get("properties", {}).get("layers", [])
+    raw_means: dict[str, float] = {}
+    for layer in layers:
+        name = str(layer.get("name", ""))
+        d_factor = float(layer.get("unit_measure", {}).get("d_factor", 1) or 1)
+        depths = layer.get("depths", [])
+        if depths:
+            val = depths[0].get("values", {}).get("mean")
+            if val is not None:
+                raw_means[name] = float(val) / d_factor
+
+    clay_pct = round(raw_means.get("clay", 20.0), 1)
+    sand_pct = round(raw_means.get("sand", 50.0), 1)
+    silt_pct = round(raw_means.get("silt", max(0.0, 100.0 - clay_pct - sand_pct)), 1)
+    soil_ph = round(raw_means.get("phh2o", 5.8), 2)
+    soc_g_kg = round(raw_means.get("soc", 14.0), 2)
+
+    summary = {
+        "lat": lat,
+        "lon": lon,
+        "soil_ph": soil_ph,
+        "soil_organic_carbon_g_kg": soc_g_kg,
+        "clay_pct": clay_pct,
+        "sand_pct": sand_pct,
+        "silt_pct": silt_pct,
+        "soil_texture": classify_usda_texture(clay_pct, sand_pct),
+    }
+
+    spec = DATASETS_REGISTRY["soilgrids"]
+    record = ProvenanceRecord(
+        dataset_key=spec.dataset_key,
+        short_name=spec.short_name,
+        product_version=spec.product_version,
+        retrieval_mode="live",
+        bbox=(round(lon - 0.002, 4), round(lat - 0.002, 4), round(lon + 0.002, 4), round(lat + 0.002, 4)),
+        temporal_range=("static", "static"),
+        source_uri=f"{SOILGRIDS_QUERY_URL}?lon={lon:.4f}&lat={lat:.4f}",
+        payload_sha256=compute_payload_sha256(payload),
+        record_count=len(layers),
+    )
+    return summary, record
 
 
 def search_earthaccess_granules(
@@ -128,7 +271,6 @@ def generate_ashanti_pilot_raw_daily(
         None,
     )
 
-    # Exponentially weighted soil moisture memory driving SMAP and true vegetation response
     sm_series = np.empty(n_days, dtype=float)
     sm_val = 0.15
     for idx in range(n_days):
@@ -136,7 +278,6 @@ def generate_ashanti_pilot_raw_daily(
         sm_val = float(np.clip(sm_val, 0.08, 0.44))
         sm_series[idx] = sm_val
 
-    # Peak cloud probability coincides with humid major & minor rainy seasons
     cloud_prob = np.clip(
         0.14 + 0.62 * major_wave + 0.52 * minor_wave + rng.normal(0.0, 0.10, size=n_days),
         0.02,
@@ -148,7 +289,6 @@ def generate_ashanti_pilot_raw_daily(
         0.18,
         0.82,
     )
-    # Atmospheric haze & sub-pixel cloud depress optical NDVI prior to QA masking
     cloud_bias = np.where(cloud_prob > 0.35, -0.18 * cloud_prob, 0.0)
     ndvi_raw = np.clip(ndvi_true + cloud_bias + rng.normal(0.0, 0.025, size=n_days), 0.05, 0.92)
 
@@ -192,7 +332,7 @@ def generate_ashanti_pilot_raw_daily(
     )
     power_uri = build_power_request_url(centre_lat, centre_lon, f"{year}0101", f"{year}1231")
 
-    for ds_key in ("imerg", "smap", "modis_ndvi", "nasa_power", "era5_land", "srtm"):
+    for ds_key in ("imerg", "smap", "smap_root_zone", "modis_ndvi", "nasa_power", "era5_land", "srtm"):
         spec = DATASETS_REGISTRY[ds_key]
         manifest.add_record(
             ProvenanceRecord(

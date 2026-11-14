@@ -1,4 +1,4 @@
-"""Dataset registry and SHA-256 provenance manifest tracking."""
+"""Dataset registry, geographic applicability notes, and SHA-256 provenance tracking."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -29,10 +29,10 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
         dataset_key="imerg",
         short_name="GPM_3IMERGDF",
         provider="NASA GES DISC",
-        product_version="V07B",
+        product_version="V07",
         resolution_km=10.0,
         temporal_cadence="daily",
-        limitation_note="Satellite precipitation (~10 km); requires local gauge checks.",
+        limitation_note="0.1 deg (~10 km) final-run satellite precipitation; validate against local gauges.",
     ),
     "smap": DatasetSpec(
         dataset_key="smap",
@@ -40,8 +40,17 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
         provider="NASA NSIDC DAAC",
         product_version="006",
         resolution_km=9.0,
-        temporal_cadence="2-3 days",
-        limitation_note="Coarse surface soil moisture (0-5 cm); regional context only.",
+        temporal_cadence="daily / 2-3 day revisit",
+        limitation_note="9 km EASE-Grid 2.0 surface soil moisture (0-5 cm); regional context only.",
+    ),
+    "smap_root_zone": DatasetSpec(
+        dataset_key="smap_root_zone",
+        short_name="SPL4SMGP",
+        provider="NASA NSIDC DAAC",
+        product_version="007",
+        resolution_km=9.0,
+        temporal_cadence="3-hourly / daily composite",
+        limitation_note="Model-assimilated L4 surface & root-zone (0-100 cm) soil moisture at 9 km.",
     ),
     "modis_ndvi": DatasetSpec(
         dataset_key="modis_ndvi",
@@ -50,7 +59,7 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
         product_version="061",
         resolution_km=0.25,
         temporal_cadence="16-day / daily HLS blend",
-        limitation_note="250 m pixels mix smallholder plots; cloud gaps during rainy seasons.",
+        limitation_note="250 m pixels mix smallholder plots; cloud gaps during Ashanti rainy seasons.",
     ),
     "landsat": DatasetSpec(
         dataset_key="landsat",
@@ -60,6 +69,15 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
         resolution_km=0.03,
         temporal_cadence="5-16 days",
         limitation_note="30 m field detail, severely cloud-limited in Ashanti peak rains.",
+    ),
+    "gedi_canopy": DatasetSpec(
+        dataset_key="gedi_canopy",
+        short_name="GEDI02_B",
+        provider="NASA LP DAAC / UMD",
+        product_version="002",
+        resolution_km=0.025,
+        temporal_cadence="irregular orbital tracks",
+        limitation_note="25 m LiDAR canopy height & cover footprints along ISS tracks; agroforestry/tree-shade context only.",
     ),
     "srtm": DatasetSpec(
         dataset_key="srtm",
@@ -95,7 +113,7 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
         product_version="2.0",
         resolution_km=0.25,
         temporal_cadence="static",
-        limitation_note="Global modelled soil properties; verify with local soil tests.",
+        limitation_note="Global modelled soil properties; verify pH and nutrients with local soil tests.",
     ),
     "era5_land": DatasetSpec(
         dataset_key="era5_land",
@@ -106,6 +124,22 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
         temporal_cadence="hourly / daily",
         limitation_note="Reanalysis gap-fill; cross-checked against GPM IMERG.",
     ),
+}
+
+# Challenge resource links whose coverage is US-only (replaced globally in Field Shift)
+NON_GLOBAL_US_BASELINES: dict[str, dict[str, str]] = {
+    "usda_web_soil_survey": {
+        "url": "https://websoilsurvey.nrcs.usda.gov/app/",
+        "coverage": "United States only (SSURGO / STATSGO2)",
+        "global_substitute": "soilgrids (ISRIC SoilGrids v2.0, 250 m global)",
+        "reason": "NRCS Web Soil Survey does not cover Ghana; Field Shift routes non-US farms to ISRIC SoilGrids plus local lab checks.",
+    },
+    "oregon_state_prism": {
+        "url": "https://prism.oregonstate.edu/",
+        "coverage": "Conterminous United States only (~800 m - 4 km)",
+        "global_substitute": "nasa_power + imerg + era5_land",
+        "reason": "PRISM climate grids end at US borders; Field Shift uses global NASA POWER, GPM IMERG V07, and ERA5-Land.",
+    },
 }
 
 
