@@ -1,4 +1,4 @@
-"""Data-source adapters (NASA POWER, earthaccess CMR) and Ashanti pilot generator."""
+"""Data-source adapters (NASA POWER, ISRIC SoilGrids, earthaccess CMR) and pilot generator."""
 from __future__ import annotations
 
 from typing import Any, Sequence
@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 
 import numpy as np
 import pandas as pd
+import requests
 
 from fieldshift.ingest.manifest import (
     DATASETS_REGISTRY,
@@ -15,6 +16,7 @@ from fieldshift.ingest.manifest import (
 )
 
 POWER_DAILY_BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
+SOILGRIDS_QUERY_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 DEFAULT_POWER_PARAMETERS: tuple[str, ...] = (
     "PRECTOTCORR",
     "T2M",
@@ -50,6 +52,244 @@ def build_power_request_url(
         "format": "JSON",
     }
     return f"{POWER_DAILY_BASE_URL}?{urlencode(params)}"
+
+
+def fetch_nasa_power_daily(
+    lat: float,
+    lon: float,
+    start_yyyymmdd: str,
+    end_yyyymmdd: str,
+    parameters: Sequence[str] = DEFAULT_POWER_PARAMETERS,
+    timeout: int = 20,
+    session: requests.Session | None = None,
+) -> tuple[pd.DataFrame, ProvenanceRecord]:
+    """Fetch daily agroclimatic observations from NASA POWER REST API."""
+    url = build_power_request_url(lat, lon, start_yyyymmdd, end_yyyymmdd, parameters)
+    client = session or requests
+    resp = client.get(url, timeout=timeout)
+    resp.raise_for_status()
+    payload = resp.json()
+
+    param_map: dict[str, dict[str, float]] = payload.get("properties", {}).get("parameter", {})
+    if not param_map:
+        raise ValueError("NASA POWER response missing properties.parameter")
+
+    all_dates = sorted({dt for series in param_map.values() for dt in series.keys()})
+    rows: list[dict[str, Any]] = []
+    for dt_key in all_dates:
+        row: dict[str, Any] = {"date": pd.to_datetime(dt_key, format="%Y%m%d")}
+        for p_name in parameters:
+            val = float(param_map.get(p_name, {}).get(dt_key, -999.0))
+            row[p_name.lower()] = np.nan if val <= -990.0 else val
+        rows.append(row)
+
+    df = pd.DataFrame(rows).rename(
+        columns={
+            "prectotcorr": "rain_power_mm",
+            "t2m": "tmean_c",
+            "t2m_max": "tmax_c",
+            "t2m_min": "tmin_c",
+            "allsky_sfc_sw_dwn": "solar_rad_mj_m2",
+            "rh2m": "rh_pct",
+        }
+    )
+    spec = DATASETS_REGISTRY["nasa_power"]
+    record = ProvenanceRecord(
+        dataset_key=spec.dataset_key,
+        short_name=spec.short_name,
+        product_version=spec.product_version,
+        retrieval_mode="live",
+        bbox=(round(lon - 0.25, 4), round(lat - 0.25, 4), round(lon + 0.25, 4), round(lat + 0.25, 4)),
+        temporal_range=(
+            f"{start_yyyymmdd[:4]}-{start_yyyymmdd[4:6]}-{start_yyyymmdd[6:]}",
+            f"{end_yyyymmdd[:4]}-{end_yyyymmdd[4:6]}-{end_yyyymmdd[6:]}",
+        ),
+        source_uri=url,
+        payload_sha256=compute_payload_sha256(payload),
+        record_count=len(df),
+    )
+    return df, record
+
+
+def classify_usda_texture(clay_pct: float, sand_pct: float) -> str:
+    """Assign a simplified USDA topsoil texture class from clay and sand percentages."""
+    silt_pct = max(0.0, 100.0 - clay_pct - sand_pct)
+    if clay_pct >= 40.0:
+        return "Clay"
+    if clay_pct >= 27.0 and sand_pct < 45.0:
+        return "Clay loam"
+    if clay_pct >= 20.0 and sand_pct >= 45.0:
+        return "Sandy clay loam"
+    if silt_pct >= 50.0 and clay_pct < 27.0:
+        return "Silt loam"
+    if sand_pct >= 70.0 and clay_pct < 15.0:
+        return "Sandy loam"
+    if sand_pct >= 52.0:
+        return "Sandy loam"
+    return "Loam"
+
+
+def fetch_soilgrids_point(
+    lat: float,
+    lon: float,
+    timeout: int = 20,
+    session: requests.Session | None = None,
+) -> tuple[dict[str, Any], ProvenanceRecord]:
+    """Query ISRIC SoilGrids v2.0 (0-5 cm mean) for Ashanti/global baseline soil properties."""
+    params = [
+        ("lon", f"{lon:.4f}"),
+        ("lat", f"{lat:.4f}"),
+        ("property", "phh2o"),
+        ("property", "soc"),
+        ("property", "clay"),
+        ("property", "sand"),
+        ("property", "silt"),
+        ("depth", "0-5cm"),
+        ("value", "mean"),
+    ]
+    client = session or requests
+    resp = client.get(SOILGRIDS_QUERY_URL, params=params, timeout=timeout)
+    resp.raise_for_status()
+    payload = resp.json()
+
+    layers = payload.get("properties", {}).get("layers", [])
+    raw_means: dict[str, float] = {}
+    for layer in layers:
+        name = str(layer.get("name", ""))
+        d_factor = float(layer.get("unit_measure", {}).get("d_factor", 1) or 1)
+        depths = layer.get("depths", [])
+        if depths:
+            val = depths[0].get("values", {}).get("mean")
+            if val is not None:
+                raw_means[name] = float(val) / d_factor
+
+    clay_pct = round(raw_means.get("clay", 20.0), 1)
+    sand_pct = round(raw_means.get("sand", 50.0), 1)
+    silt_pct = round(raw_means.get("silt", max(0.0, 100.0 - clay_pct - sand_pct)), 1)
+    soil_ph = round(raw_means.get("phh2o", 5.8), 2)
+    soc_g_kg = round(raw_means.get("soc", 14.0), 2)
+
+    summary = {
+        "lat": lat,
+        "lon": lon,
+        "soil_ph": soil_ph,
+        "soil_organic_carbon_g_kg": soc_g_kg,
+        "clay_pct": clay_pct,
+        "sand_pct": sand_pct,
+        "silt_pct": silt_pct,
+        "soil_texture": classify_usda_texture(clay_pct, sand_pct),
+    }
+
+    spec = DATASETS_REGISTRY["soilgrids"]
+    record = ProvenanceRecord(
+        dataset_key=spec.dataset_key,
+        short_name=spec.short_name,
+        product_version=spec.product_version,
+        retrieval_mode="live",
+        bbox=(round(lon - 0.002, 4), round(lat - 0.002, 4), round(lon + 0.002, 4), round(lat + 0.002, 4)),
+        temporal_range=("static", "static"),
+        source_uri=f"{SOILGRIDS_QUERY_URL}?lon={lon:.4f}&lat={lat:.4f}",
+        payload_sha256=compute_payload_sha256(payload),
+        record_count=len(layers),
+    )
+    return summary, record
+
+
+ISDASOIL_BASE_URL = "https://api.isda-africa.com"
+
+
+def _extract_isda_value(prop_payload: Any, depth: str = "0-20") -> float | None:
+    if not isinstance(prop_payload, dict):
+        return None
+    if depth in prop_payload and isinstance(prop_payload[depth], dict):
+        val = prop_payload[depth].get("value", prop_payload[depth].get("mean"))
+        if isinstance(val, dict):
+            val = val.get("value", val.get("mean"))
+        return float(val) if val is not None else None
+    for entry in prop_payload.get("property", []) if isinstance(prop_payload.get("property"), list) else []:
+        if isinstance(entry, dict) and entry.get("depth") in (depth, "0-20cm"):
+            val = entry.get("value")
+            if isinstance(val, dict):
+                val = val.get("value")
+            return float(val) if val is not None else None
+    return None
+
+
+def fetch_isdasoil_point(
+    lat: float,
+    lon: float,
+    username: str | None = None,
+    password: str | None = None,
+    timeout: int = 20,
+    session: requests.Session | None = None,
+) -> tuple[dict[str, Any], ProvenanceRecord]:
+    """Query free CC-BY-4.0 iSDAsoil v2 API (30 m African topsoil) using optional credentials."""
+    user = username if username is not None else os.environ.get("ISDASOIL_USERNAME", "").strip()
+    pwd = password if password is not None else os.environ.get("ISDASOIL_PASSWORD", "").strip()
+    if not user or not pwd:
+        raise ValueError("ISDASOIL_USERNAME and ISDASOIL_PASSWORD are required for iSDAsoil v2 lookup")
+
+    client = session or requests
+    auth_resp = client.post(
+        f"{ISDASOIL_BASE_URL}/login",
+        data={"username": user, "password": pwd},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=timeout,
+    )
+    auth_resp.raise_for_status()
+    token = auth_resp.json().get("access_token")
+    if not token:
+        raise RuntimeError("iSDAsoil authentication response missing access_token")
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    params = [("lat", f"{lat:.5f}"), ("lon", f"{lon:.5f}"), ("depth", "0-20")]
+    for prop in ("ph", "carbon_organic", "nitrogen_total", "clay_content", "sand_content", "silt_content"):
+        params.append(("property", prop))
+
+    resp = client.get(
+        f"{ISDASOIL_BASE_URL}/isdasoil/v2/soilproperty",
+        headers=headers,
+        params=params,
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    props = payload.get("property", payload) if isinstance(payload, dict) else {}
+
+    ph_val = _extract_isda_value(props.get("ph"))
+    soc_val = _extract_isda_value(props.get("carbon_organic"))
+    n_val = _extract_isda_value(props.get("nitrogen_total"))
+    clay_pct = round(_extract_isda_value(props.get("clay_content")) or 20.0, 1)
+    sand_pct = round(_extract_isda_value(props.get("sand_content")) or 50.0, 1)
+    silt_pct = round(_extract_isda_value(props.get("silt_content")) or max(0.0, 100.0 - clay_pct - sand_pct), 1)
+
+    summary = {
+        "lat": lat,
+        "lon": lon,
+        "resolution_km": 0.03,
+        "source": "isdasoil_v2",
+        "soil_ph": round(ph_val if ph_val is not None else 5.8, 2),
+        "soil_organic_carbon_g_kg": round(soc_val if soc_val is not None else 14.0, 2),
+        "total_nitrogen_g_kg": round(n_val, 3) if n_val is not None else None,
+        "clay_pct": clay_pct,
+        "sand_pct": sand_pct,
+        "silt_pct": silt_pct,
+        "soil_texture": classify_usda_texture(clay_pct, sand_pct),
+    }
+
+    spec = DATASETS_REGISTRY["isdasoil"]
+    record = ProvenanceRecord(
+        dataset_key=spec.dataset_key,
+        short_name=spec.short_name,
+        product_version=spec.product_version,
+        retrieval_mode="live",
+        bbox=(round(lon - 0.0003, 4), round(lat - 0.0003, 4), round(lon + 0.0003, 4), round(lat + 0.0003, 4)),
+        temporal_range=("static", "static"),
+        source_uri=f"{ISDASOIL_BASE_URL}/isdasoil/v2/soilproperty?lat={lat:.4f}&lon={lon:.4f}",
+        payload_sha256=compute_payload_sha256(payload),
+        record_count=len(props) if isinstance(props, dict) else 1,
+    )
+    return summary, record
 
 
 def search_earthaccess_granules(
@@ -128,7 +368,6 @@ def generate_ashanti_pilot_raw_daily(
         None,
     )
 
-    # Exponentially weighted soil moisture memory driving SMAP and true vegetation response
     sm_series = np.empty(n_days, dtype=float)
     sm_val = 0.15
     for idx in range(n_days):
@@ -136,7 +375,6 @@ def generate_ashanti_pilot_raw_daily(
         sm_val = float(np.clip(sm_val, 0.08, 0.44))
         sm_series[idx] = sm_val
 
-    # Peak cloud probability coincides with humid major & minor rainy seasons
     cloud_prob = np.clip(
         0.14 + 0.62 * major_wave + 0.52 * minor_wave + rng.normal(0.0, 0.10, size=n_days),
         0.02,
@@ -148,7 +386,6 @@ def generate_ashanti_pilot_raw_daily(
         0.18,
         0.82,
     )
-    # Atmospheric haze & sub-pixel cloud depress optical NDVI prior to QA masking
     cloud_bias = np.where(cloud_prob > 0.35, -0.18 * cloud_prob, 0.0)
     ndvi_raw = np.clip(ndvi_true + cloud_bias + rng.normal(0.0, 0.025, size=n_days), 0.05, 0.92)
 
@@ -192,7 +429,7 @@ def generate_ashanti_pilot_raw_daily(
     )
     power_uri = build_power_request_url(centre_lat, centre_lon, f"{year}0101", f"{year}1231")
 
-    for ds_key in ("imerg", "smap", "modis_ndvi", "nasa_power", "era5_land", "srtm"):
+    for ds_key in ("imerg", "smap", "smap_root_zone", "modis_ndvi", "nasa_power", "era5_land", "srtm"):
         spec = DATASETS_REGISTRY[ds_key]
         manifest.add_record(
             ProvenanceRecord(
@@ -209,3 +446,90 @@ def generate_ashanti_pilot_raw_daily(
         )
 
     return df, manifest
+
+
+def fetch_earthdata_ashanti_snapshot(
+    bbox: tuple[float, float, float, float] = (-1.70, 6.60, -1.20, 7.10),
+    temporal: tuple[str, str] = ("2024-05-01", "2024-05-05"),
+    sample_imerg_netcdf: bool = True,
+) -> tuple[dict[str, Any], list[ProvenanceRecord]]:
+    """Verify live NASA Earthdata CMR granules and optionally sample a live GPM IMERG NetCDF granule."""
+    import earthaccess
+
+    auth = earthaccess.login(strategy="environment")
+    if not auth.authenticated:
+        raise RuntimeError("Earthdata environment authentication failed (check EARTHDATA_* env vars)")
+
+    dataset_keys = ("imerg", "smap", "smap_root_zone", "modis_ndvi", "gedi_canopy")
+    granule_summary: dict[str, Any] = {}
+    records: list[ProvenanceRecord] = []
+
+    imerg_results: list[Any] = []
+    for ds_key in dataset_keys:
+        spec = DATASETS_REGISTRY[ds_key]
+        hits = earthaccess.search_data(
+            short_name=spec.short_name,
+            version=spec.product_version,
+            bounding_box=bbox,
+            temporal=temporal,
+            count=5,
+        )
+        links = [link for item in hits[:2] for link in (item.data_links() if hasattr(item, "data_links") else [])]
+        granule_summary[ds_key] = {
+            "short_name": spec.short_name,
+            "version": spec.product_version,
+            "granule_count": len(hits),
+            "sample_links": links[:2],
+        }
+        if ds_key == "imerg":
+            imerg_results = list(hits)
+        if hits:
+            records.append(
+                ProvenanceRecord(
+                    dataset_key=spec.dataset_key,
+                    short_name=spec.short_name,
+                    product_version=spec.product_version,
+                    retrieval_mode="live",
+                    bbox=bbox,
+                    temporal_range=temporal,
+                    source_uri=links[0] if links else f"cmr://{spec.short_name}.{spec.product_version}",
+                    payload_sha256=compute_payload_sha256(granule_summary[ds_key]),
+                    record_count=len(hits),
+                )
+            )
+
+    imerg_sample: dict[str, Any] | None = None
+    if sample_imerg_netcdf and imerg_results:
+        try:
+            import netCDF4
+
+            opened = earthaccess.open([imerg_results[0]])
+            if opened:
+                with opened[0] as fobj:
+                    raw_bytes = fobj.read()
+                with netCDF4.Dataset("inmemory.nc4", memory=raw_bytes) as nc:
+                    lats = np.asarray(nc.variables["lat"][:], dtype=float)
+                    lons = np.asarray(nc.variables["lon"][:], dtype=float)
+                    lat_idx = np.where((lats >= bbox[1]) & (lats <= bbox[3]))[0]
+                    lon_idx = np.where((lons >= bbox[0]) & (lons <= bbox[2]))[0]
+                    precip_var = nc.variables["precipitation"]
+                    if lat_idx.size > 0 and lon_idx.size > 0:
+                        # GPM_3IMERGDF shape is usually (time, lon, lat) or (time, lat, lon)
+                        dims = precip_var.dimensions
+                        arr = np.asarray(precip_var[:], dtype=float)
+                        if dims == ("time", "lon", "lat"):
+                            sub = arr[0, np.ix_(lon_idx, lat_idx)]
+                        else:
+                            sub = arr[0, np.ix_(lat_idx, lon_idx)]
+                        valid = sub[np.isfinite(sub) & (sub >= 0.0)]
+                        imerg_sample = {
+                            "mean_rain_mm_day": round(float(np.mean(valid)), 3) if valid.size > 0 else None,
+                            "max_rain_mm_day": round(float(np.max(valid)), 3) if valid.size > 0 else None,
+                            "pixel_count": int(valid.size),
+                            "temporal_sample": temporal[0],
+                        }
+        except Exception as exc:
+            imerg_sample = {"note": f"CMR verified; NetCDF subset deferred ({type(exc).__name__})"}
+
+    return {"granules": granule_summary, "imerg_sample": imerg_sample}, records
+

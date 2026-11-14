@@ -69,11 +69,11 @@ Most example datasets in the challenge brief are US-only (CDL, Web Soil Survey, 
 | 1 | **Evidence Passport** | Every strategy and finding carries evidence tier, data used, coverage, method, uncertainty, gaps and required expert review. | Moves from "black-box recommendation" to **auditable decision support**. |
 | 2 | **Vulnerability and Bare-Field Calendar** | A week-by-week or dekad-by-dekad view of rainfall reliability, soil moisture, vegetation cover, heat and erosion exposure. | Shows _when_ fields are exposed or stressed, which is the brief's core ask. |
 | 3 | **Priority-weighted transparent scoring** | Farmers set priorities (water, income, soil health, labour, market, erosion). Strategies are scored with visible, adjustable weights. | The tool adapts to the farmer's values, not the other way round. |
-| 4 | **Rank-stability testing** | Weights, inputs and climate assumptions are perturbed to test whether a strategy's ranking holds. | Tells the farmer when a recommendation is robust and when it is a toss-up. |
-| 5 | **Climate stress-testing** | Rainfall and temperature sliders, plus replay of historical analog seasons (driest, wettest, hottest on record). | Lets farmers ask "what if next season is dry?" without any forecasting claims. |
-| 6 | **Scale-honesty layer** | Compares each dataset's pixel footprint with the farm area and flags when satellites cannot resolve it. | Prevents over-claiming farm-level precision from coarse data. |
-| 7 | **Controlled feedback loop** | Farmer decisions and outcomes are logged, quality-graded and only then considered for model improvement. | Turns local experience into evidence without polluting models with noisy labels. |
-| 8 | **Low-bandwidth, plain-language outputs** | Short summary cards in plain English and (planned) Twi, printable and shareable. | Usable by farmers and extension officers with limited connectivity or technical background. |
+| 4 | **Rank-stability & minimax regret** | Weights, inputs and climate assumptions are perturbed (Monte Carlo rank stability + worst-case minimax climate regret across weather presets). | Tells the farmer when a recommendation is robust, lowest-regret, or a toss-up. |
+| 5 | **Climate stress-testing** | Rainfall and temperature sliders, flash-drought decoupling checks, and replay of historical analog seasons (driest, wettest, hottest). | Lets farmers ask "what if next season is dry?" without any forecasting claims. |
+| 6 | **Scale-honesty layer** | Compares each dataset's pixel footprint (e.g., 30 m iSDAsoil/HLS vs. 250 m SoilGrids/MODIS vs. 9 km SMAP) with the farm area and flags coarse pixels. | Prevents over-claiming farm-level precision from coarse data. |
+| 7 | **Controlled feedback loop** | Farmer decisions and outcomes are logged offline/online, quality-graded by extension officers (`M8` Normal-conjugate calibration only on verified grades). | Turns local experience into evidence without polluting models with noisy labels. |
+| 8 | **Low-bandwidth EN + Twi cards** | Short `<320`-char summary cards in plain English and Ashanti Twi (with urea-bag N-fixation savings & bare-days avoided), shareable over SMS/WhatsApp. | Usable by farmers and extension officers with limited connectivity or technical background. |
 
 ---
 
@@ -326,12 +326,12 @@ See [docs/BUILD_PHASES_AND_WORK_SPLIT.md](docs/BUILD_PHASES_AND_WORK_SPLIT.md) f
 | Phase | Goal | Primary Owner | Status |
 | ----- | ---- | ------------- | ------ |
 | 0. Repo & scoring parity | Monorepo structure, Next.js + Expo SDK 58 + FastAPI scaffolds, `1e-9` scoring parity | `kaliblip` + `OdinID-CS` | ✅ Done |
-| 1. Foundations & ingestion | Supabase schema, Ashanti pilot bbox, NASA/partner ingest, QC cube, priority inputs | `kaliblip` (pipeline/mobile) · `OdinID-CS` (web inputs) | 🔲 Planned |
-| 2. Environmental intelligence & core visuals | Harmonised features, M1–M4 models, `knowledge/` CSVs, Vulnerability Calendar & Map explorer | `kaliblip` (ML/knowledge) · `OdinID-CS` (calendar/map/scale UI) | 🔲 Planned |
-| 3. Decision & evidence layer | M6 scoring, M7 Evidence Passports, comparison cards, mobile screens & glossary | `kaliblip` (M6/M7/mobile) · `OdinID-CS` (cards/passport/glossary) | 🔲 Planned |
-| 4. Stress-testing & offline | Analog season replay, climate sliders, optional M5 surrogate, PWA & mobile offline cache | `kaliblip` (analogs/M5/mobile) · `OdinID-CS` (sliders/PWA/print) | 🔲 Planned |
-| 5. Validation, localization & demo | Time-aware validation, model cards, English/Twi (`next-intl`), officer workflow, SMS/USSD mock | `kaliblip` (validation/mobile) · `OdinID-CS` (i18n/officer/Vercel) | 🔲 Planned |
-| 6. Post-hackathon roadmap | M8 Bayesian outcome updating, live Africa's Talking SMS/USSD, additional regions | `kaliblip` + `OdinID-CS` | 🔲 Roadmap |
+| 1. Foundations & ingestion | Supabase schema, Ashanti pilot bbox, NASA/iSDAsoil/SoilGrids ingest, QC cube, priority inputs | `kaliblip` (pipeline/mobile) · `OdinID-CS` (web inputs) | ✅ Done (`kaliblip` & Phase 1 web) |
+| 2. Environmental intelligence & core visuals | Harmonised features (WaPOR `P/ET0`, flash drought), M1–M4 models, `knowledge/` CSVs, Web Calendar & Map | `kaliblip` (ML/knowledge) · `OdinID-CS` (calendar/map/scale UI) | ✅ `kaliblip` done · ⬜ Web pending |
+| 3. Decision & evidence layer | M6 fusion (N-fixation urea savings), M7 Passports, seeded Supabase, comparison cards, mobile & glossary | `kaliblip` (M6/M7/mobile) · `OdinID-CS` (cards/passport/glossary) | ✅ `kaliblip` done · ⬜ Web pending |
+| 4. Stress-testing & offline | Analog season replay, minimax regret, climate sliders, mobile offline cache & decision/outcome queue | `kaliblip` (analogs/regret/mobile) · `OdinID-CS` (sliders/PWA/print) | ✅ `kaliblip` done · ⬜ Web pending |
+| 5. Validation, localization & demo | Time-aware validation, M1–M8 model cards, mobile EN/Twi SMS export, Web i18n, officer workflow | `kaliblip` (validation/mobile) · `OdinID-CS` (i18n/officer/Vercel) | ✅ Pipeline & mobile done *(device QA pending)* · ⬜ Web pending |
+| 6. Scientific enhancements & scale-out | M8 conjugate Bayesian outcome updating (`models/feedback.py`), live Africa's Talking SMS/USSD, additional regions | `kaliblip` + `OdinID-CS` | 🟡 M8 engine & mobile logging done · ⬜ USSD gateway/regional expansion planned |
 
 ### Planned demo story
 
