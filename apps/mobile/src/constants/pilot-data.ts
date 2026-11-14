@@ -134,6 +134,11 @@ export const SCALE_HONESTY_DATASETS: {
   note: string;
 }[] = [
   {
+    dataset: 'GEDI L2B (canopy structure)',
+    nativeResolutionKm: 0.025,
+    note: '25 m sparse LiDAR footprints capture perennial cocoa/tree shade, not weekly crop phenology.',
+  },
+  {
     dataset: 'Landsat / HLS (NDVI, bare soil)',
     nativeResolutionKm: 0.03,
     note: '30 m pixel resolves multi-hectare plots when cloud-free.',
@@ -146,7 +151,12 @@ export const SCALE_HONESTY_DATASETS: {
   {
     dataset: 'SMAP L3 (surface soil moisture)',
     nativeResolutionKm: 9.0,
-    note: '9 km footprint gives regional moisture context, not field irrigation state.',
+    note: '9 km footprint gives regional 0-5 cm moisture context, not field irrigation state.',
+  },
+  {
+    dataset: 'SMAP L4 (root-zone 0-100 cm)',
+    nativeResolutionKm: 9.0,
+    note: '9 km model-assimilated root-zone moisture tracks regional drought propagation.',
   },
   {
     dataset: 'GPM IMERG (rainfall & dry spells)',

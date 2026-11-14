@@ -21,8 +21,10 @@ seasons:
 dataset_resolutions_km:
   imerg: 10.0
   smap: 9.0
+  smap_root_zone: 9.0
   modis_ndvi: 0.25
   landsat: 0.03
+  gedi_canopy: 0.025
   srtm: 0.03
   ecostress: 0.07
   nasa_power: 50.0
