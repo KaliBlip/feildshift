@@ -14,3 +14,6 @@ mlruns/
 .ipynb_checkpoints/
 *.tsbuildinfo
 next-env.d.ts
+.expo/
+dist/
+expo-env.d.ts
