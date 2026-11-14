@@ -1,65 +1,98 @@
 import { SymbolView } from 'expo-symbols';
 import { PropsWithChildren, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { CardShadow, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
+export function Collapsible({
+  children,
+  title,
+}: PropsWithChildren & { title: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const theme = useTheme();
 
   return (
-    <ThemedView>
+    <View
+      style={[
+        styles.wrapper,
+        CardShadow,
+        {
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+        },
+      ]}>
       <Pressable
         style={({ pressed }) => [styles.heading, pressed && styles.pressedHeading]}
         onPress={() => setIsOpen((value) => !value)}>
-        <ThemedView type="backgroundElement" style={styles.button}>
+        <View
+          style={[
+            styles.button,
+            { backgroundColor: isOpen ? theme.primarySoft : theme.iconBg },
+          ]}>
           <SymbolView
-            name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-            size={14}
+            name={{
+              ios: 'chevron.right',
+              android: 'chevron_right',
+              web: 'chevron_right',
+            }}
+            size={13}
             weight="bold"
-            tintColor={theme.text}
-            style={{ transform: [{ rotate: isOpen ? '-90deg' : '90deg' }] }}
+            tintColor={isOpen ? theme.primaryText : theme.textSecondary}
+            style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
           />
-        </ThemedView>
+        </View>
 
-        <ThemedText type="small">{title}</ThemedText>
+        <ThemedText type="smallBold" style={styles.titleText}>
+          {title}
+        </ThemedText>
       </Pressable>
       {isOpen && (
-        <Animated.View entering={FadeIn.duration(200)}>
-          <ThemedView type="backgroundElement" style={styles.content}>
+        <Animated.View entering={FadeIn.duration(180)}>
+          <View
+            style={[
+              styles.content,
+              {
+                backgroundColor: theme.backgroundElement,
+              },
+            ]}>
             {children}
-          </ThemedView>
+          </View>
         </Animated.View>
       )}
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    padding: Spacing.three,
+  },
   heading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: 10,
   },
   pressedHeading: {
-    opacity: 0.7,
+    opacity: 0.75,
   },
   button: {
-    width: Spacing.four,
-    height: Spacing.four,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: Radii.xs,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  titleText: {
+    flex: 1,
+  },
   content: {
-    marginTop: Spacing.three,
-    borderRadius: Spacing.three,
-    marginLeft: Spacing.four,
-    padding: Spacing.four,
+    marginTop: 10,
+    borderRadius: Radii.md,
+    padding: 12,
   },
 });
