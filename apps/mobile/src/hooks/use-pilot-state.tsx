@@ -7,6 +7,8 @@ import {
   type ReactNode,
 } from 'react';
 
+import * as Network from 'expo-network';
+
 import {
   ASHANTI_PILOT_CELLS,
   DEFAULT_FARM_AREA_HA,
@@ -21,6 +23,8 @@ import {
   fetchLivePilotStrategies,
   flushQueuedSubmissions,
   getQueuedSubmissionCount,
+  hydrateCachedPilotPayloadAsync,
+  hydrateQueueFromAsyncStorage,
   readCachedPilotPayload,
   submitDecisionLog,
   submitOutcomeReport,
@@ -46,12 +50,15 @@ interface PilotStateValue {
   setFarmAreaHa: (area: number) => void;
   weights: PriorityWeightsTuple;
   setWeightAt: (index: number, delta: number) => void;
+  setExactWeightAt: (index: number, value: number) => void;
   applyPreset: (weights: PriorityWeightsTuple) => void;
   strategies: RotationStrategySpec[];
   passports: EvidencePassportEntry[];
   dataSourceMode: PilotDataSourceMode;
   lastSyncedAt: string | null;
   queuedLogsCount: number;
+  isConnected: boolean;
+  isSyncing: boolean;
   refreshLivePilotData: () => Promise<void>;
   logFarmerDecision: (request: FarmerDecisionRequest) => Promise<SubmissionResult>;
   logFieldOutcome: (
@@ -79,48 +86,90 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
   const [queuedLogsCount, setQueuedLogsCount] = useState<number>(() =>
     getQueuedSubmissionCount(),
   );
+  const [isConnected, setIsConnected] = useState<boolean>(true);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  const applyHydratedOrCached = useCallback((cellId: string, live: Awaited<ReturnType<typeof fetchLivePilotStrategies>>) => {
-    if (live && live.strategies.length > 0) {
-      setStrategies(live.strategies);
-      if (live.passports.length > 0) {
-        setPassports(live.passports);
+  const applyHydratedOrCached = useCallback(
+    async (
+      cellId: string,
+      live: Awaited<ReturnType<typeof fetchLivePilotStrategies>>,
+    ) => {
+      if (live && live.strategies.length > 0) {
+        setStrategies(live.strategies);
+        if (live.passports.length > 0) {
+          setPassports(live.passports);
+        }
+        setDataSourceMode('supabase');
+        setLastSyncedAt(live.syncedAt ?? null);
+        return;
       }
-      setDataSourceMode('supabase');
-      setLastSyncedAt(live.syncedAt ?? null);
-      return;
-    }
 
-    const cached = readCachedPilotPayload(cellId);
-    if (cached && cached.strategies.length > 0) {
-      setStrategies(cached.strategies);
-      if (cached.passports.length > 0) {
-        setPassports(cached.passports);
+      const cached =
+        readCachedPilotPayload(cellId) ??
+        (await hydrateCachedPilotPayloadAsync(cellId));
+      if (cached && cached.strategies.length > 0) {
+        setStrategies(cached.strategies);
+        if (cached.passports.length > 0) {
+          setPassports(cached.passports);
+        }
+        setDataSourceMode('cached');
+        setLastSyncedAt(cached.syncedAt ?? null);
+        return;
       }
-      setDataSourceMode('cached');
-      setLastSyncedAt(cached.syncedAt ?? null);
-      return;
-    }
 
-    setStrategies(ROTATION_STRATEGIES);
-    setPassports(EVIDENCE_PASSPORTS);
-    setDataSourceMode('fixture');
-    setLastSyncedAt(null);
-  }, []);
+      setStrategies(ROTATION_STRATEGIES);
+      setPassports(EVIDENCE_PASSPORTS);
+      setDataSourceMode('fixture');
+      setLastSyncedAt(null);
+    },
+    [],
+  );
 
   const refreshLivePilotData = useCallback(async () => {
-    const [, flushResult] = await Promise.all([
-      fetchLivePilotStrategies(selectedCellId).then((live) =>
-        applyHydratedOrCached(selectedCellId, live),
-      ),
-      flushQueuedSubmissions(),
-    ]);
-    setQueuedLogsCount(flushResult.remaining);
+    setIsSyncing(true);
+    try {
+      await hydrateQueueFromAsyncStorage();
+      const [live, flushResult] = await Promise.all([
+        fetchLivePilotStrategies(selectedCellId),
+        flushQueuedSubmissions(),
+      ]);
+      await applyHydratedOrCached(selectedCellId, live);
+      setQueuedLogsCount(flushResult.remaining);
+    } finally {
+      setIsSyncing(false);
+    }
   }, [applyHydratedOrCached, selectedCellId]);
 
   useEffect(() => {
     let active = true;
+    void Network.getNetworkStateAsync()
+      .then((state) => {
+        if (active && typeof state.isConnected === 'boolean') {
+          setIsConnected(state.isConnected);
+        }
+      })
+      .catch(() => undefined);
+
+    const sub = Network.addNetworkStateListener((state) => {
+      const online = Boolean(state.isConnected);
+      setIsConnected(online);
+      if (online) {
+        void flushQueuedSubmissions().then((res) =>
+          setQueuedLogsCount(res.remaining),
+        );
+      }
+    });
+    return () => {
+      active = false;
+      sub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setIsSyncing(true);
     void (async () => {
+      await hydrateQueueFromAsyncStorage();
       const [live, flushResult] = await Promise.all([
         fetchLivePilotStrategies(selectedCellId),
         flushQueuedSubmissions(),
@@ -128,8 +177,9 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
       if (!active) {
         return;
       }
-      applyHydratedOrCached(selectedCellId, live);
+      await applyHydratedOrCached(selectedCellId, live);
       setQueuedLogsCount(flushResult.remaining);
+      setIsSyncing(false);
     })();
     return () => {
       active = false;
@@ -184,6 +234,14 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const setExactWeightAt = (index: number, value: number) => {
+    setWeights((prev) => {
+      const next: PriorityWeightsTuple = [...prev] as PriorityWeightsTuple;
+      next[index] = Math.min(1, Math.max(0.05, Number(value.toFixed(2))));
+      return next;
+    });
+  };
+
   const applyPreset = (presetWeights: PriorityWeightsTuple) => {
     setWeights([...presetWeights] as PriorityWeightsTuple);
   };
@@ -198,12 +256,15 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
         setFarmAreaHa,
         weights,
         setWeightAt,
+        setExactWeightAt,
         applyPreset,
         strategies,
         passports,
         dataSourceMode,
         lastSyncedAt,
         queuedLogsCount,
+        isConnected,
+        isSyncing,
         refreshLivePilotData,
         logFarmerDecision,
         logFieldOutcome,

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { BarChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DekadHeatmapMatrix } from '@/components/dekad-heatmap-matrix';
 import {
   type ChartPoint,
   HeroStatusCard,
@@ -9,6 +11,7 @@ import {
   SegmentedPillBar,
   TopBarHeader,
 } from '@/components/design-system';
+import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { SEASONAL_VULNERABILITY_CALENDAR } from '@/constants/pilot-data';
 import {
@@ -36,6 +39,7 @@ const QA_TIER_LABELS = {
 } as const;
 
 const TEMP_BY_MONTH = [33, 35, 34, 31, 29, 27, 27, 28, 29, 29, 31, 32];
+const ET0_BY_MONTH = [138, 140, 144, 130, 122, 112, 114, 118, 118, 120, 126, 132];
 
 export default function CalendarScreen() {
   const theme = useTheme();
@@ -74,6 +78,20 @@ export default function CalendarScreen() {
     }),
   );
 
+  const rainEt0BarData = SEASONAL_VULNERABILITY_CALENDAR.flatMap((w, idx) => [
+    {
+      value: w.rainMm,
+      label: w.monthLabel,
+      spacing: 2,
+      labelWidth: 26,
+      frontColor: w.bareFieldRisk ? theme.amber : theme.primary,
+    },
+    {
+      value: ET0_BY_MONTH[idx],
+      frontColor: theme.blue,
+    },
+  ]);
+
   return (
     <SafeAreaView
       edges={['top']}
@@ -108,6 +126,8 @@ export default function CalendarScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
+        <SyncStatusPill />
+
         <HeroStatusCard
           value="67"
           unit="%"
@@ -122,6 +142,53 @@ export default function CalendarScreen() {
           metaLeft={selectedCell.cellId}
           metaRight="36-dekad baseline"
         />
+
+        <DekadHeatmapMatrix windows={SEASONAL_VULNERABILITY_CALENDAR} />
+
+        <View
+          style={[
+            styles.windowCard,
+            CardShadow,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}>
+          <View style={styles.windowTopRow}>
+            <ThemedText type="sectionTitle">Rainfall vs. ET₀ Demand</ThemedText>
+            <ThemedText type="code" themeColor="textMuted">
+              mm / month
+            </ThemedText>
+          </View>
+          <View style={styles.statChipsRow}>
+            <View style={[styles.miniChip, { backgroundColor: theme.primarySoft }]}>
+              <ThemedText type="code" style={{ color: theme.primaryText }}>
+                Rain (Wet)
+              </ThemedText>
+            </View>
+            <View style={[styles.miniChip, { backgroundColor: theme.amberSoft }]}>
+              <ThemedText type="code" style={{ color: theme.amber }}>
+                Rain (Bare Dip)
+              </ThemedText>
+            </View>
+            <View style={[styles.miniChip, { backgroundColor: theme.blueSoft }]}>
+              <ThemedText type="code" style={{ color: theme.blue }}>
+                ET₀ Demand
+              </ThemedText>
+            </View>
+          </View>
+          <BarChart
+            data={rainEt0BarData}
+            barWidth={8}
+            spacing={12}
+            roundedTop
+            hideRules
+            noOfSections={4}
+            maxValue={240}
+            height={145}
+            xAxisThickness={0}
+            yAxisThickness={0}
+            yAxisTextStyle={{ color: theme.textMuted, fontSize: 10 }}
+            xAxisLabelTextStyle={{ color: theme.textSecondary, fontSize: 10 }}
+          />
+        </View>
 
         <SegmentedPillBar
           options={FILTER_OPTIONS}

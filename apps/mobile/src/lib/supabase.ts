@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import type {
   EvidencePassportEntry,
   RotationStrategySpec,
@@ -30,14 +32,41 @@ export function cachePilotCellPayload(
     syncedAt: payload.syncedAt ?? new Date().toISOString(),
   };
   MEMORY_CELL_CACHE.set(cellId, stamped);
+  const serialized = JSON.stringify(stamped);
   const storage = getOptionalWebStorage();
   if (storage) {
     try {
-      storage.setItem(`${STORAGE_PREFIX}${cellId}`, JSON.stringify(stamped));
+      storage.setItem(`${STORAGE_PREFIX}${cellId}`, serialized);
     } catch {
       // Ignore quota / private-browsing storage errors cleanly
     }
   }
+  void AsyncStorage.setItem(`${STORAGE_PREFIX}${cellId}`, serialized).catch(
+    () => undefined,
+  );
+}
+
+export async function hydrateCachedPilotPayloadAsync(
+  cellId: string,
+): Promise<LivePilotCellPayload | null> {
+  const inMem = readCachedPilotPayload(cellId);
+  if (inMem) {
+    return inMem;
+  }
+  try {
+    const raw = await AsyncStorage.getItem(`${STORAGE_PREFIX}${cellId}`);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as LivePilotCellPayload;
+    if (Array.isArray(parsed.strategies) && parsed.strategies.length > 0) {
+      MEMORY_CELL_CACHE.set(cellId, parsed);
+      return parsed;
+    }
+  } catch {
+    // Ignore AsyncStorage read/parse issues cleanly
+  }
+  return null;
 }
 
 export function readCachedPilotPayload(
@@ -303,14 +332,37 @@ function readQueue(): QueuedSubmission[] {
 
 function writeQueue(items: QueuedSubmission[]): void {
   MEMORY_SUBMISSION_QUEUE = [...items];
+  const serialized = JSON.stringify(items);
   const storage = getOptionalWebStorage();
   if (storage) {
     try {
-      storage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(items));
+      storage.setItem(QUEUE_STORAGE_KEY, serialized);
     } catch {
       // Ignore storage quota / private mode failures
     }
   }
+  void AsyncStorage.setItem(QUEUE_STORAGE_KEY, serialized).catch(
+    () => undefined,
+  );
+}
+
+export async function hydrateQueueFromAsyncStorage(): Promise<number> {
+  if (MEMORY_SUBMISSION_QUEUE !== null && MEMORY_SUBMISSION_QUEUE.length > 0) {
+    return MEMORY_SUBMISSION_QUEUE.length;
+  }
+  try {
+    const raw = await AsyncStorage.getItem(QUEUE_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        MEMORY_SUBMISSION_QUEUE = parsed as QueuedSubmission[];
+        return MEMORY_SUBMISSION_QUEUE.length;
+      }
+    }
+  } catch {
+    // Ignore AsyncStorage read/parse issues cleanly
+  }
+  return readQueue().length;
 }
 
 async function postSupabaseRow(

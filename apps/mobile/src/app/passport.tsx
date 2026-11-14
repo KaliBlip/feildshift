@@ -1,3 +1,4 @@
+import { AlertTriangle, BadgeCheck, Radar } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +9,7 @@ import {
   ThreeZoneGaugeBar,
   TopBarHeader,
 } from '@/components/design-system';
+import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Collapsible } from '@/components/ui/collapsible';
 import { GLOSSARY_ITEMS, type EvidencePassportEntry } from '@/constants/pilot-data';
@@ -64,6 +66,18 @@ const COVER_OPTIONS = [
   { id: 'Bare', label: 'Bare soil' },
 ] as const;
 
+const WATER_STRESS_OPTIONS = [
+  { id: 'None', label: 'No stress' },
+  { id: 'Mild', label: 'Mild wilt' },
+  { id: 'Severe', label: 'Severe dry' },
+] as const;
+
+const YIELD_SIGNAL_OPTIONS = [
+  { id: 'Strong', label: 'Good yield' },
+  { id: 'Average', label: 'Normal' },
+  { id: 'Stressed', label: 'Low yield' },
+] as const;
+
 export default function PassportScreen() {
   const theme = useTheme();
   const {
@@ -77,21 +91,22 @@ export default function PassportScreen() {
   const [showOutcomeForm, setShowOutcomeForm] = useState(false);
   const [seasonName, setSeasonName] = useState<'Major' | 'Minor' | 'Dry'>('Major');
   const [soilCover, setSoilCover] = useState<'Intact' | 'Partial' | 'Bare'>('Intact');
+  const [waterStress, setWaterStress] = useState<'None' | 'Mild' | 'Severe'>('None');
+  const [yieldSignal, setYieldSignal] = useState<'Strong' | 'Average' | 'Stressed'>('Average');
   const [outcomeNotes, setOutcomeNotes] = useState('');
   const [outcomeStatus, setOutcomeStatus] = useState<string | null>(null);
 
   const handleSubmitOutcome = async () => {
     const trimmed = outcomeNotes.trim();
-    if (!trimmed) {
-      setOutcomeStatus('Enter brief crop cover or rainfall observations first.');
-      return;
-    }
+    const summaryText = trimmed
+      ? `${yieldSignal} outcome — ${trimmed}`
+      : `${yieldSignal} outcome (${seasonName} season, ${soilCover.toLowerCase()} cover, ${waterStress.toLowerCase()} water stress)`;
     const res = await logFieldOutcome({
       seasonYear: 2026,
       seasonName,
-      outcomeSummary: trimmed,
+      outcomeSummary: summaryText,
       soilCoverObserved: soilCover,
-      waterStressObserved: 'Field check recorded',
+      waterStressObserved: waterStress,
       pestOrDiseaseNotes: null,
     });
     setOutcomeNotes('');
@@ -142,6 +157,8 @@ export default function PassportScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
+        <SyncStatusPill />
+
         <SegmentedPillBar
           options={TIER_FILTER_OPTIONS}
           selectedId={tierFilter}
@@ -151,6 +168,8 @@ export default function PassportScreen() {
         {visiblePassports.map((passport) => {
           const isHypothesis =
             passport.evidenceTier === 'unverified_hypothesis';
+          const isDataDerived =
+            passport.evidenceTier === 'data_derived_finding';
           const pillBg = isHypothesis ? theme.amberSoft : theme.primarySoft;
           const pillFg = isHypothesis ? theme.amber : theme.primaryText;
 
@@ -170,6 +189,13 @@ export default function PassportScreen() {
                   {passport.title}
                 </ThemedText>
                 <View style={[styles.tierPill, { backgroundColor: pillBg }]}>
+                  {isHypothesis ? (
+                    <AlertTriangle size={12} color={pillFg} />
+                  ) : isDataDerived ? (
+                    <Radar size={12} color={pillFg} />
+                  ) : (
+                    <BadgeCheck size={12} color={pillFg} />
+                  )}
                   <ThemedText type="code" style={{ color: pillFg }}>
                     {EVIDENCE_TIER_LABELS[passport.evidenceTier]}
                   </ThemedText>
@@ -290,10 +316,24 @@ export default function PassportScreen() {
                   setSoilCover(id as 'Intact' | 'Partial' | 'Bare')
                 }
               />
+              <SegmentedPillBar
+                options={WATER_STRESS_OPTIONS}
+                selectedId={waterStress}
+                onSelect={(id) =>
+                  setWaterStress(id as 'None' | 'Mild' | 'Severe')
+                }
+              />
+              <SegmentedPillBar
+                options={YIELD_SIGNAL_OPTIONS}
+                selectedId={yieldSignal}
+                onSelect={(id) =>
+                  setYieldSignal(id as 'Strong' | 'Average' | 'Stressed')
+                }
+              />
               <TextInput
                 value={outcomeNotes}
                 onChangeText={setOutcomeNotes}
-                placeholder="e.g., Cowpea relay kept soil moist through 10-day dry spell"
+                placeholder="Optional notes (e.g., Cowpea relay kept soil moist)"
                 placeholderTextColor={theme.textMuted}
                 multiline
                 style={[
@@ -355,6 +395,9 @@ const styles = StyleSheet.create({
   },
   flexOne: { flex: 1 },
   tierPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: Radii.sm,
