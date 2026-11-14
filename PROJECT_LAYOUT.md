@@ -2,12 +2,13 @@
 
 Status: proposal from the team-stack discussion, 14 November 2026. Items marked "verify" were not tested.
 
-## Repository layout (one repo, two deployable apps, one offline pipeline)
+## Repository layout (one repo, web, mobile, optional API, one offline pipeline)
 
 ```text
 field-shift/
 ├── apps/
 │   ├── web/                  Next.js app (Vercel project 1, Root Directory: apps/web)
+│   ├── mobile/               React Native (Expo SDK 58) app
 │   └── api/                  Optional FastAPI decision service (Vercel project 2, Root Directory: apps/api)
 │       ├── index.py          Defines the top-level `app` that Vercel loads
 │       ├── scoring.py        numpy-only scoring and rank probabilities
@@ -55,6 +56,4 @@ Why the split matters: Vercel's current docs give Python functions a 500 MB unco
 
 ## Not included yet
 
-- `apps/web` is empty: create it with `create-next-app` inside that folder.
-- The TypeScript scoring module and its test (use the same fixture).
 - Supabase schema and row-level security policies.
