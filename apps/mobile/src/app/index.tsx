@@ -1,43 +1,45 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import {
+  PRIORITY_PRESETS,
+  SCORING_CRITERIA,
+  evaluateMobileScaleHonesty,
+} from '@/constants/pilot-data';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { baseScores, rankProbabilities } from '@/lib/scoring';
+import { usePilotState } from '@/hooks/use-pilot-state';
 
-const PREVIEW_SCORING_DATA = {
-  strategies: ['Existing rotation', 'Strategy A', 'Strategy B'],
-  criteria: [
-    'Water efficiency',
-    'Soil health',
-    'Erosion protection',
-    'Income and market',
-  ],
-  scores: [
-    [0.55, 0.4, 0.5, 0.3],
-    [0.7, 0.65, 0.6, 0.55],
-    [0.6, 0.8, 0.75, 0.45],
-  ],
-  weights: [0.4, 0.3, 0.2, 0.1],
-};
+const TIER_LABELS = {
+  field_scale: 'Field scale',
+  sub_regional: 'Sub-regional',
+  regional_context_only: 'Regional context',
+} as const;
 
 export default function HomeScreen() {
-  const computedBaseScores = baseScores(
-    PREVIEW_SCORING_DATA.scores,
-    PREVIEW_SCORING_DATA.weights,
-  );
-  const stability = rankProbabilities(
-    PREVIEW_SCORING_DATA.scores,
-    PREVIEW_SCORING_DATA.weights,
-    { runs: 2000, seed: 42 },
-  );
+  const {
+    cells,
+    selectedCell,
+    selectCell,
+    farmAreaHa,
+    setFarmAreaHa,
+    weights,
+    setWeightAt,
+    applyPreset,
+  } = usePilotState();
+
+  const scaleAssessment = evaluateMobileScaleHonesty(farmAreaHa);
+  const weightSum = weights.reduce((acc, w) => acc + w, 0);
 
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            Platform.OS === 'web' && styles.webContentOffset,
+          ]}
           showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <ThemedText type="smallBold" themeColor="textSecondary">
@@ -50,64 +52,146 @@ export default function HomeScreen() {
             </ThemedText>
           </View>
 
-          <View style={styles.section}>
-            <ThemedText type="smallBold">
-              Baseline Strategy Comparison (Illustrative Fixture)
-            </ThemedText>
+          <ThemedView type="backgroundElement" style={styles.card}>
+            <ThemedText type="smallBold">1. Pilot Cell Selector</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Weights:{' '}
-              {PREVIEW_SCORING_DATA.weights
-                .map(
-                  (w, idx) =>
-                    `${PREVIEW_SCORING_DATA.criteria[idx]} ${w.toFixed(1)}`,
-                )
-                .join(' · ')}
+              Choose an Ashanti 0.05° analysis cell (~5.5 × 5.5 km) inside the
+              50 × 50 km pilot corridor:
             </ThemedText>
 
-            {PREVIEW_SCORING_DATA.strategies.map((strategy, sIdx) => (
-              <ThemedView
-                key={strategy}
-                type="backgroundElement"
-                style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <ThemedText type="default">{strategy}</ThemedText>
-                  <ThemedText type="smallBold">
-                    Score {computedBaseScores[sIdx].toFixed(3)}
-                  </ThemedText>
-                </View>
-
-                <ThemedText type="small" themeColor="textSecondary">
-                  First-rank probability:{' '}
-                  {(stability.probabilityFirst[sIdx] * 100).toFixed(1)}% (mean
-                  rank {stability.meanRank[sIdx].toFixed(2)})
-                </ThemedText>
-
-                <View style={styles.criteriaList}>
-                  {PREVIEW_SCORING_DATA.criteria.map((criterion, cIdx) => (
-                    <View key={criterion} style={styles.criterionRow}>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {criterion}
+            <View style={styles.chipRow}>
+              {cells.map((cell) => {
+                const isSelected = cell.cellId === selectedCell.cellId;
+                return (
+                  <Pressable
+                    key={cell.cellId}
+                    onPress={() => selectCell(cell.cellId)}
+                    style={({ pressed }) => pressed && styles.pressed}>
+                    <ThemedView
+                      type={
+                        isSelected ? 'backgroundSelected' : 'background'
+                      }
+                      style={[
+                        styles.chip,
+                        isSelected && styles.chipSelected,
+                      ]}>
+                      <ThemedText
+                        type="smallBold"
+                        themeColor={isSelected ? 'text' : 'textSecondary'}>
+                        {cell.cellId}
                       </ThemedText>
-                      <ThemedText type="code">
-                        {PREVIEW_SCORING_DATA.scores[sIdx][cIdx].toFixed(2)}
-                      </ThemedText>
-                    </View>
-                  ))}
-                </View>
-              </ThemedView>
-            ))}
-          </View>
+                    </ThemedView>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <ThemedText type="small">{selectedCell.zoneName}</ThemedText>
+            <ThemedText type="code" themeColor="textSecondary">
+              {selectedCell.centreLat.toFixed(3)}°N,{' '}
+              {Math.abs(selectedCell.centreLon).toFixed(3)}°W · Slope{' '}
+              {selectedCell.slopePct}% · {selectedCell.soilTexture} (pH{' '}
+              {selectedCell.soilPh}) · ~{selectedCell.typicalAnnualRainMm} mm/yr
+            </ThemedText>
+          </ThemedView>
 
           <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="smallBold">
-              Evidence Passport &amp; Local Review
-            </ThemedText>
+            <View style={styles.rowBetween}>
+              <View style={styles.flexOne}>
+                <ThemedText type="smallBold">2. Scale-Honesty Check</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Farm size: {farmAreaHa.toFixed(1)} ha (
+                  {(farmAreaHa / 100).toFixed(3)} km²)
+                </ThemedText>
+              </View>
+              <View style={styles.stepperRow}>
+                <Pressable
+                  onPress={() => setFarmAreaHa(farmAreaHa - 0.5)}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedView type="background" style={styles.stepperButton}>
+                    <ThemedText type="smallBold">−</ThemedText>
+                  </ThemedView>
+                </Pressable>
+                <Pressable
+                  onPress={() => setFarmAreaHa(farmAreaHa + 0.5)}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedView type="background" style={styles.stepperButton}>
+                    <ThemedText type="smallBold">+</ThemedText>
+                  </ThemedView>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.listGap}>
+              {scaleAssessment.map((entry) => (
+                <View key={entry.dataset} style={styles.scaleRow}>
+                  <View style={styles.flexOne}>
+                    <ThemedText type="small">{entry.dataset}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {entry.note}
+                    </ThemedText>
+                  </View>
+                  <ThemedView type="background" style={styles.badge}>
+                    <ThemedText type="code">
+                      {TIER_LABELS[entry.advisoryTier]}
+                    </ThemedText>
+                  </ThemedView>
+                </View>
+              ))}
+            </View>
+          </ThemedView>
+
+          <ThemedView type="backgroundElement" style={styles.card}>
+            <ThemedText type="smallBold">3. Farmer Priority Weights</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Numbers above mirror shared/test-vectors/scoring_basic.json for
-              cross-platform scoring parity. Farmer priorities, seed access,
-              disease risk, and coarse satellite pixel scale must be reviewed
-              with a local agronomist before acting.
+              Adjust priorities here or on the Compare tab to re-rank strategies
+              live:
             </ThemedText>
+
+            <View style={styles.chipRow}>
+              {PRIORITY_PRESETS.map((preset) => (
+                <Pressable
+                  key={preset.id}
+                  onPress={() => applyPreset(preset.weights)}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <ThemedView type="background" style={styles.chip}>
+                    <ThemedText type="small">{preset.label}</ThemedText>
+                  </ThemedView>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.listGap}>
+              {SCORING_CRITERIA.map((criterion, idx) => {
+                const sharePct = Math.round((weights[idx] / weightSum) * 100);
+                return (
+                  <View key={criterion} style={styles.rowBetween}>
+                    <View style={styles.flexOne}>
+                      <ThemedText type="small">{criterion}</ThemedText>
+                      <ThemedText type="code" themeColor="textSecondary">
+                        Weight {weights[idx].toFixed(2)} ({sharePct}%)
+                      </ThemedText>
+                    </View>
+                    <View style={styles.stepperRow}>
+                      <Pressable
+                        onPress={() => setWeightAt(idx, -0.05)}
+                        style={({ pressed }) => pressed && styles.pressed}>
+                        <ThemedView type="background" style={styles.stepperButton}>
+                          <ThemedText type="smallBold">−</ThemedText>
+                        </ThemedView>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setWeightAt(idx, 0.05)}
+                        style={({ pressed }) => pressed && styles.pressed}>
+                        <ThemedView type="background" style={styles.stepperButton}>
+                          <ThemedText type="smallBold">+</ThemedText>
+                        </ThemedView>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           </ThemedView>
         </ScrollView>
       </SafeAreaView>
@@ -116,45 +200,71 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    alignItems: 'center',
-  },
+  screen: { flex: 1 },
+  safeArea: { flex: 1, alignItems: 'center' },
   content: {
     width: '100%',
     maxWidth: MaxContentWidth,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
     paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.four,
+    gap: Spacing.three,
   },
-  header: {
-    gap: Spacing.one,
+  webContentOffset: {
+    paddingTop: Spacing.six,
   },
-  section: {
-    gap: Spacing.two,
-  },
+  header: { gap: Spacing.one },
   card: {
     padding: Spacing.three,
     borderRadius: Spacing.three,
     gap: Spacing.two,
   },
-  cardHeader: {
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  chip: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: Spacing.two,
+  },
+  chipSelected: {
+    borderWidth: 1,
+    borderColor: '#2E7D32',
+  },
+  rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: Spacing.two,
   },
-  criteriaList: {
-    gap: Spacing.one,
-    paddingTop: Spacing.one,
-  },
-  criterionRow: {
+  flexOne: { flex: 1 },
+  stepperRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: Spacing.one,
+  },
+  stepperButton: {
+    width: 34,
+    height: 34,
+    borderRadius: Spacing.two,
+    justifyContent: 'center',
     alignItems: 'center',
   },
+  listGap: {
+    gap: Spacing.two,
+    paddingTop: Spacing.one,
+  },
+  scaleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  badge: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    borderRadius: Spacing.two,
+  },
+  pressed: { opacity: 0.7 },
 });

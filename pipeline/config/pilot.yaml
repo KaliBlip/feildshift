@@ -1,7 +1,30 @@
-# Pilot region configuration. Fill in once the partner farm location is confirmed.
+# Pilot region configuration: Ashanti Region, Ghana (Ejura-Kumasi forest-transition corridor).
 region_name: ashanti_pilot
-centre_lat: null        # decimal degrees
-centre_lon: null        # decimal degrees
-half_width_km: 25       # about a 50 x 50 km area
-analysis_grid: null     # decide after checking native dataset resolutions
-time_step: dekad        # 10-day steps
+region_label: "Ashanti Region, Ghana (Forest-Transition Pilot)"
+centre_lat: 6.8500        # decimal degrees North
+centre_lon: -1.4500       # decimal degrees West (negative for West)
+half_width_km: 25.0       # 50 x 50 km pilot corridor
+analysis_grid_deg: 0.05   # ~5.5 km analysis cells (10 x 10 grid covering 50 x 50 km)
+time_step: dekad          # 10-day steps (36 dekads per year)
+baseline_years:
+  - 2015
+  - 2025
+seasons:
+  major:
+    label: "Major rainy season (Mar-Jul)"
+    start_dekad: 7
+    end_dekad: 21
+  minor:
+    label: "Minor rainy season (Sep-Nov)"
+    start_dekad: 25
+    end_dekad: 33
+dataset_resolutions_km:
+  imerg: 10.0
+  smap: 9.0
+  modis_ndvi: 0.25
+  landsat: 0.03
+  srtm: 0.03
+  ecostress: 0.07
+  nasa_power: 50.0
+  soilgrids: 0.25
+  era5_land: 9.0
