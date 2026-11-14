@@ -321,15 +321,17 @@ Field Shift follows a modular design that separates **data acquisition, processi
 
 Field Shift is under active development for the NASA Space Apps Challenge 2026. **Capabilities below are planned unless marked otherwise.** Nothing here should be read as completed or scientifically validated until it is demonstrated.
 
-| Phase | Goal | Status |
-| ----- | ---- | ------ |
-| 1. Foundations | Study-area definition, dataset access, provenance and QA pipeline | 🔲 Planned |
-| 2. Environmental intelligence | Harmonised features, anomaly detection, season-type clustering, trend analysis | 🔲 Planned |
-| 3. Knowledge base | Sourced crop and rotation parameters for Ashanti candidates | 🔲 Planned |
-| 4. Decision layer | Multi-criteria scoring, priority weights, rank-stability testing | 🔲 Planned |
-| 5. Interface | Calendar, map explorer, comparison cards, scenario sliders | 🔲 Planned |
-| 6. Evidence and explainability | Evidence Passports, scale-honesty layer, glossary | 🔲 Planned |
-| 7. Validation and demo | Expert and farmer review, demo scenario, documented limitations | 🔲 Planned |
+See [docs/BUILD_PHASES_AND_WORK_SPLIT.md](docs/BUILD_PHASES_AND_WORK_SPLIT.md) for the detailed breakdown of deliverables, integration gates, and work assignments.
+
+| Phase | Goal | Primary Owner | Status |
+| ----- | ---- | ------------- | ------ |
+| 0. Repo & scoring parity | Monorepo structure, Next.js + Expo SDK 58 + FastAPI scaffolds, `1e-9` scoring parity | `kaliblip` + `OdinID-CS` | ✅ Done |
+| 1. Foundations & ingestion | Supabase schema, Ashanti pilot bbox, NASA/partner ingest, QC cube, priority inputs | `kaliblip` (pipeline/mobile) · `OdinID-CS` (web inputs) | 🔲 Planned |
+| 2. Environmental intelligence & core visuals | Harmonised features, M1–M4 models, `knowledge/` CSVs, Vulnerability Calendar & Map explorer | `kaliblip` (ML/knowledge) · `OdinID-CS` (calendar/map/scale UI) | 🔲 Planned |
+| 3. Decision & evidence layer | M6 scoring, M7 Evidence Passports, comparison cards, mobile screens & glossary | `kaliblip` (M6/M7/mobile) · `OdinID-CS` (cards/passport/glossary) | 🔲 Planned |
+| 4. Stress-testing & offline | Analog season replay, climate sliders, optional M5 surrogate, PWA & mobile offline cache | `kaliblip` (analogs/M5/mobile) · `OdinID-CS` (sliders/PWA/print) | 🔲 Planned |
+| 5. Validation, localization & demo | Time-aware validation, model cards, English/Twi (`next-intl`), officer workflow, SMS/USSD mock | `kaliblip` (validation/mobile) · `OdinID-CS` (i18n/officer/Vercel) | 🔲 Planned |
+| 6. Post-hackathon roadmap | M8 Bayesian outcome updating, live Africa's Talking SMS/USSD, additional regions | `kaliblip` + `OdinID-CS` | 🔲 Roadmap |
 
 ### Planned demo story
 
@@ -375,7 +377,9 @@ Field Shift is under active development for the NASA Space Apps Challenge 2026. 
 
 ## 👥 Team and license
 
-**Team:** _add team name and members_
+**Team:**
+- **kaliblip** — Mobile App (`apps/mobile`), ML & Earth Observation Pipeline (`pipeline`), Crop Knowledge & Decision Service (`knowledge`, `apps/api`)
+- **OdinID-CS** — Web Application (`apps/web`), Interactive Map & Calendar Visualizations, Scenario & Evidence Passport UI
 
 **License:** _to be specified_. NASA and partner datasets retain their own usage and attribution requirements.
 
