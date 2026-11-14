@@ -1,13 +1,17 @@
+import Slider from '@react-native-community/slider';
+import { Layers, ShieldCheck, Sprout } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CropSequenceStrip } from '@/components/crop-sequence-strip';
 import {
-  FieldParcelBanner,
   SegmentedPillBar,
   ThreeZoneGaugeBar,
   TopBarHeader,
 } from '@/components/design-system';
+import { SmsShareModal } from '@/components/sms-share-modal';
+import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import {
   PRIORITY_PRESETS,
@@ -44,12 +48,17 @@ const STRESS_PILL_OPTIONS = CLIMATE_STRESS_SCENARIOS.map((s) => ({
   label: s.shortLabel,
 }));
 
+const VIEW_MODE_OPTIONS = [
+  { id: 'cards', label: 'Strategy Cards' },
+  { id: 'matrix', label: 'Head-to-Head Matrix' },
+] as const;
+
 export default function CompareScreen() {
   const theme = useTheme();
   const {
     selectedCell,
     weights,
-    setWeightAt,
+    setExactWeightAt,
     applyPreset,
     strategies,
     dataSourceMode,
@@ -61,9 +70,14 @@ export default function CompareScreen() {
     PRIORITY_PRESETS[0].id,
   );
   const [stressId, setStressId] = useState<ClimateStressId>('baseline');
+  const [viewMode, setViewMode] = useState<'cards' | 'matrix'>('cards');
   const [showPriorityEditor, setShowPriorityEditor] = useState(false);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
   const [decisionFeedback, setDecisionFeedback] = useState<string | null>(null);
+  const [smsPreview, setSmsPreview] = useState<{
+    strategyName: string;
+    message: string;
+  } | null>(null);
 
   const baselineMatrix = strategies.map((s) => [...s.criterionScores]);
   const baselineScores = baseScores(baselineMatrix, [...weights]);
@@ -98,7 +112,7 @@ export default function CompareScreen() {
     }
   };
 
-  const handleShareSms = async (sIdx: number) => {
+  const handleShareSms = (sIdx: number) => {
     const strategy = strategies[sIdx];
     const scorePct = Math.round(computedScores[sIdx] * 100);
     const probPct = Math.round(stability.probabilityFirst[sIdx] * 100);
@@ -113,12 +127,7 @@ export default function CompareScreen() {
       scenarioLabel: activeScenario.shortLabel,
       stressDeltaPct: stressId === 'baseline' ? undefined : deltaPct,
     });
-    try {
-      await Share.share({ message });
-      setDecisionFeedback(`Ready to share SMS/Twi summary for ${strategy.name}.`);
-    } catch {
-      setDecisionFeedback(message);
-    }
+    setSmsPreview({ strategyName: strategy.name, message });
   };
 
   const handleLogDecision = async (strategyCode: string, strategyName: string) => {
@@ -177,6 +186,8 @@ export default function CompareScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
+        <SyncStatusPill />
+
         <SegmentedPillBar
           options={PRESET_PILL_OPTIONS}
           selectedId={activePresetId}
@@ -198,6 +209,12 @@ export default function CompareScreen() {
             </ThemedText>
           )}
         </View>
+
+        <SegmentedPillBar
+          options={VIEW_MODE_OPTIONS}
+          selectedId={viewMode}
+          onSelect={(id) => setViewMode(id as 'cards' | 'matrix')}
+        />
 
         {(decisionFeedback !== null || queuedLogsCount > 0) && (
           <View
@@ -229,44 +246,93 @@ export default function CompareScreen() {
             {SCORING_CRITERIA.map((criterion, idx) => {
               const sharePct = Math.round((weights[idx] / weightSum) * 100);
               return (
-                <View key={criterion} style={styles.weightRow}>
-                  <View style={styles.flexOne}>
+                <View key={criterion} style={styles.sliderBlock}>
+                  <View style={styles.weightRow}>
                     <ThemedText type="small">{criterion}</ThemedText>
-                    <ThemedText type="code" themeColor="textMuted">
-                      {sharePct}% share
+                    <ThemedText type="code" style={{ color: theme.primaryText }}>
+                      {sharePct}% share ({weights[idx].toFixed(2)})
                     </ThemedText>
                   </View>
-                  <View style={styles.stepperGroup}>
-                    <Pressable
-                      onPress={() => setWeightAt(idx, -0.05)}
-                      style={({ pressed }) => [
-                        styles.stepperBtn,
-                        { backgroundColor: theme.backgroundElement },
-                        pressed && styles.pressed,
-                      ]}>
-                      <ThemedText type="smallBold">−</ThemedText>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setWeightAt(idx, 0.05)}
-                      style={({ pressed }) => [
-                        styles.stepperBtn,
-                        { backgroundColor: theme.primarySoft },
-                        pressed && styles.pressed,
-                      ]}>
-                      <ThemedText
-                        type="smallBold"
-                        style={{ color: theme.primaryText }}>
-                        +
-                      </ThemedText>
-                    </Pressable>
-                  </View>
+                  <Slider
+                    minimumValue={0.05}
+                    maximumValue={1}
+                    step={0.05}
+                    value={weights[idx]}
+                    onValueChange={(val) => setExactWeightAt(idx, val)}
+                    minimumTrackTintColor={theme.primary}
+                    maximumTrackTintColor={theme.border}
+                    thumbTintColor={theme.primary}
+                  />
                 </View>
               );
             })}
           </View>
         )}
 
-        {rankedIndices.map((sIdx, rankPos) => {
+        {viewMode === 'matrix' && (
+          <View
+            style={[
+              styles.strategyCard,
+              CardShadow,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}>
+            <ThemedText type="sectionTitle">
+              Strategy &amp; Regret Matrix ({activeScenario.shortLabel})
+            </ThemedText>
+            <View style={[styles.matrixHeader, { borderBottomColor: theme.border }]}>
+              <ThemedText type="code" themeColor="textMuted" style={styles.matrixColName}>
+                Strategy
+              </ThemedText>
+              <ThemedText type="code" themeColor="textMuted" style={styles.matrixColStat}>
+                Fit
+              </ThemedText>
+              <ThemedText type="code" themeColor="textMuted" style={styles.matrixColStat}>
+                Win%
+              </ThemedText>
+              <ThemedText type="code" themeColor="textMuted" style={styles.matrixColStat}>
+                Regret
+              </ThemedText>
+            </View>
+            {rankedIndices.map((sIdx) => {
+              const s = strategies[sIdx];
+              const isSafe = minimax.lowestRegretCode === s.code;
+              const regret = minimax.rowsByCode[s.code];
+              return (
+                <View
+                  key={`mtx-${s.code}`}
+                  style={[styles.matrixRow, { borderBottomColor: theme.border }]}>
+                  <View style={styles.matrixColName}>
+                    <ThemedText type="smallBold" numberOfLines={1}>
+                      {s.name}
+                    </ThemedText>
+                    {isSafe && (
+                      <ThemedText type="code" style={{ color: theme.primaryText }}>
+                        Lowest-Regret Pick
+                      </ThemedText>
+                    )}
+                  </View>
+                  <ThemedText type="code" style={styles.matrixColStat}>
+                    {Math.round(computedScores[sIdx] * 100)}
+                  </ThemedText>
+                  <ThemedText type="code" style={styles.matrixColStat}>
+                    {Math.round(stability.probabilityFirst[sIdx] * 100)}%
+                  </ThemedText>
+                  <ThemedText
+                    type="code"
+                    style={[
+                      styles.matrixColStat,
+                      { color: isSafe ? theme.primaryText : theme.amber },
+                    ]}>
+                    {regret ? `${Math.round(regret.maxRegret * 100)}%` : '—'}
+                  </ThemedText>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {viewMode === 'cards' &&
+          rankedIndices.map((sIdx, rankPos) => {
           const strategy = strategies[sIdx];
           const scorePct = Math.round(computedScores[sIdx] * 100);
           const deltaPct = Math.round(
@@ -290,9 +356,9 @@ export default function CompareScreen() {
                     rankPos === 0 ? theme.primary : theme.border,
                 },
               ]}>
-              <FieldParcelBanner
-                badgeText={strategy.sequence}
-                accentColor={strategy.isBaseline ? theme.amber : '#38D976'}
+              <CropSequenceStrip
+                sequence={strategy.sequence}
+                isBaseline={strategy.isBaseline}
               />
 
               <View style={styles.cardMetaRow}>
@@ -336,6 +402,7 @@ export default function CompareScreen() {
                         styles.regretBadge,
                         { backgroundColor: theme.primarySoft },
                       ]}>
+                      <ShieldCheck size={13} color={theme.primaryText} />
                       <ThemedText type="code" style={{ color: theme.primaryText }}>
                         Lowest-Regret Safe Pick
                         {regretRow ? ` (gap ${(regretRow.maxRegret * 100).toFixed(0)}%)` : ''}
@@ -348,6 +415,7 @@ export default function CompareScreen() {
                         styles.regretBadge,
                         { backgroundColor: theme.backgroundElement },
                       ]}>
+                      <Sprout size={13} color={theme.primaryText} />
                       <ThemedText type="code" themeColor="textSecondary">
                         ~{nOffset.ureaBagsSavedPerHa} urea bags/ha saved
                       </ThemedText>
@@ -359,6 +427,7 @@ export default function CompareScreen() {
                         styles.regretBadge,
                         { backgroundColor: theme.backgroundElement },
                       ]}>
+                      <Layers size={13} color={theme.amber} />
                       <ThemedText type="code" themeColor="textSecondary">
                         -{nOffset.bareDaysAvoided} Harmattan bare d
                       </ThemedText>
@@ -375,7 +444,7 @@ export default function CompareScreen() {
 
               <View style={styles.actionRow}>
                 <Pressable
-                  onPress={() => void handleShareSms(sIdx)}
+                  onPress={() => handleShareSms(sIdx)}
                   style={({ pressed }) => [
                     styles.actionBtn,
                     { backgroundColor: theme.backgroundElement },
@@ -464,6 +533,13 @@ export default function CompareScreen() {
           );
         })}
       </ScrollView>
+
+      <SmsShareModal
+        visible={smsPreview !== null}
+        strategyName={smsPreview?.strategyName ?? ''}
+        message={smsPreview?.message ?? ''}
+        onClose={() => setSmsPreview(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -494,16 +570,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  stepperGroup: {
-    flexDirection: 'row',
-    gap: 6,
+  sliderBlock: {
+    gap: 2,
   },
-  stepperBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: Radii.sm,
-    justifyContent: 'center',
+  matrixHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+  },
+  matrixRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  matrixColName: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  matrixColStat: {
+    width: 48,
+    textAlign: 'right',
   },
   strategyCard: {
     borderRadius: Radii.lg,
@@ -565,6 +653,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   regretBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.sm,

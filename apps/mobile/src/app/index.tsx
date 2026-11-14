@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AshantiMapPreview } from '@/components/ashanti-map-preview';
 import {
   type ChartPoint,
   InteractiveAreaChartCard,
@@ -10,6 +11,8 @@ import {
   SmartInsightCard,
   TopSearchRegionHeader,
 } from '@/components/design-system';
+import { ScaleFootprintDiagram } from '@/components/scale-footprint-diagram';
+import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { evaluateMobileScaleHonesty } from '@/constants/pilot-data';
 import {
@@ -166,10 +169,18 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
+        <SyncStatusPill />
+
         <SegmentedPillBar
           options={soilOptions}
           selectedId={selectedCell.cellId}
           onSelect={selectCell}
+        />
+
+        <AshantiMapPreview
+          cells={cells}
+          selectedCellId={selectedCell.cellId}
+          onSelectCell={selectCell}
         />
 
         <View style={styles.kpiGrid}>
@@ -294,6 +305,8 @@ export default function HomeScreen() {
           </View>
 
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+          <ScaleFootprintDiagram farmAreaHa={farmAreaHa} />
 
           {scaleAssessment.slice(0, 4).map((entry) => {
             const isField = entry.resolvesFarm;
