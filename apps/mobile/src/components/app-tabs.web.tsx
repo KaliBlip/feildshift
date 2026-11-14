@@ -6,12 +6,12 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
-import { Pressable, View, StyleSheet } from 'react-native';
+import { Pressable, View, StyleSheet, Text } from 'react-native';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { CardShadow, MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
 
 export default function AppTabs() {
   return (
@@ -43,28 +43,53 @@ export function TabButton({
   ref: _ref,
   ...props
 }: TabTriggerSlotProps) {
+  const theme = useTheme();
+
   return (
     <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
-      <ThemedView
-        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.tabButtonView}>
-        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+      <View
+        style={[
+          styles.tabButtonView,
+          {
+            backgroundColor: isFocused
+              ? theme.primary
+              : theme.backgroundElement,
+          },
+        ]}>
+        <Text
+          style={[
+            styles.tabLabel,
+            {
+              color: isFocused ? '#FFFFFF' : theme.textSecondary,
+              fontWeight: isFocused ? '600' : '500',
+            },
+          ]}>
           {children}
-        </ThemedText>
-      </ThemedView>
+        </Text>
+      </View>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
+  const theme = useTheme();
+
   return (
     <View {...props} style={styles.tabListContainer}>
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
+      <View
+        style={[
+          styles.innerContainer,
+          CardShadow,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}>
         <ThemedText type="smallBold" style={styles.brandText}>
           Field Shift
         </ThemedText>
         {props.children}
-      </ThemedView>
+      </View>
     </View>
   );
 }
@@ -72,6 +97,7 @@ export function CustomTabList(props: TabListProps) {
 const styles = StyleSheet.create({
   tabListContainer: {
     position: 'absolute',
+    bottom: 0,
     width: '100%',
     padding: Spacing.three,
     justifyContent: 'center',
@@ -79,24 +105,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   innerContainer: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.five,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     flexGrow: 1,
-    gap: Spacing.one,
+    gap: 6,
     maxWidth: MaxContentWidth,
   },
   brandText: {
     marginRight: 'auto',
   },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.75,
   },
   tabButtonView: {
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Spacing.three,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: Radii.pill,
+  },
+  tabLabel: {
+    fontSize: 12.5,
   },
 });
