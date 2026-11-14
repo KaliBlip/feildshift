@@ -81,7 +81,7 @@ def rank_probabilities(
 
 
 def _extract_cell_climate_summary(cell_features_df: pd.DataFrame) -> dict[str, float]:
-    """Summarize major/minor rainfall, dry spells, erosion exposure, and M1/M4 signals."""
+    """Summarize major/minor rainfall, WaPOR P/ET0, flash droughts, and M1/M4 signals."""
     if cell_features_df.empty:
         return {
             "major_rain_mm": 760.0,
@@ -93,6 +93,8 @@ def _extract_cell_climate_summary(cell_features_df: pd.DataFrame) -> dict[str, f
             "mean_sm_z": 0.0,
             "anomaly_rate": 0.0,
             "rain_trend_mm_yr": 0.0,
+            "minor_water_satisfaction": 0.90,
+            "flash_drought_dekads": 0.0,
         }
 
     major = cell_features_df[cell_features_df["season"] == "major"]
@@ -100,14 +102,25 @@ def _extract_cell_climate_summary(cell_features_df: pd.DataFrame) -> dict[str, f
     major_src = major if not major.empty else cell_features_df
     minor_src = minor if not minor.empty else cell_features_df
 
+    anom_col = "is_anomalous_season" if "is_anomalous_season" in cell_features_df.columns else "is_anomaly"
     anomaly_rate = (
-        float(cell_features_df["is_anomaly"].astype(float).mean())
-        if "is_anomaly" in cell_features_df.columns
+        float(cell_features_df[anom_col].astype(float).mean())
+        if anom_col in cell_features_df.columns
         else 0.0
     )
     rain_trend = (
         float(minor_src["trend_sen_slope_mm_yr"].mean())
         if "trend_sen_slope_mm_yr" in minor_src.columns
+        else 0.0
+    )
+    minor_wsi = (
+        float(minor_src["water_satisfaction_index"].median())
+        if "water_satisfaction_index" in minor_src.columns
+        else 0.90
+    )
+    flash_dekads = (
+        float(cell_features_df["flash_drought_dekads"].max())
+        if "flash_drought_dekads" in cell_features_df.columns
         else 0.0
     )
 
@@ -121,6 +134,8 @@ def _extract_cell_climate_summary(cell_features_df: pd.DataFrame) -> dict[str, f
         "mean_sm_z": float(cell_features_df["mean_sm_anomaly_z"].mean()),
         "anomaly_rate": anomaly_rate,
         "rain_trend_mm_yr": rain_trend,
+        "minor_water_satisfaction": minor_wsi,
+        "flash_drought_dekads": flash_dekads,
     }
 
 
@@ -141,16 +156,29 @@ def _score_single_strategy(
     cover_rating = float(minor_crop.get("erosion_cover_rating", 0.5))
     offseason = str(row.get("offseason_cover", "none")).lower()
 
-    # 1. Water efficiency: penalize long dry spells & cycle overrun vs available minor rain
+    # 1. Water efficiency: WaPOR P/ET0 supply margin, dry spells & flash-drought risk
     rain_margin = (climate["minor_rain_mm"] - minor_need) / max(minor_need, 1.0)
     dry_penalty = max(0.0, climate["minor_dry_spell_days"] - 11.0) * (
         0.008 if minor_drought_tol == "high" else 0.018
+    )
+    wsi_adj = 0.04 * np.clip(climate["minor_water_satisfaction"] - 0.85, -0.5, 0.3)
+    flash_penalty = (
+        0.025 * min(2.0, climate["flash_drought_dekads"])
+        if offseason == "none"
+        else 0.008 * min(2.0, climate["flash_drought_dekads"])
     )
     cycle_penalty = 0.04 if minor_dekads >= 11.0 and climate["minor_rain_mm"] < 460.0 else 0.0
     trend_adj = -0.03 if (climate["rain_trend_mm_yr"] < -15.0 and minor_drought_tol != "high") else 0.0
     heat_adj = -0.025 if (climate["major_heat_days"] > 18.0 and str(major_crop.get("drought_tolerance")) != "high") else 0.0
     water_score = _clip01(
-        float(row["water_efficiency_prior"]) + 0.08 * np.clip(rain_margin, -0.5, 0.5) - dry_penalty - cycle_penalty + trend_adj + heat_adj
+        float(row["water_efficiency_prior"])
+        + 0.08 * np.clip(rain_margin, -0.5, 0.5)
+        + wsi_adj
+        - dry_penalty
+        - flash_penalty
+        - cycle_penalty
+        + trend_adj
+        + heat_adj
     )
 
     # 2. Soil health: reward biological N fixation + residue mulch, check pH fit
@@ -174,11 +202,14 @@ def _score_single_strategy(
     residue_adj = 0.04 if offseason == "mucuna_residue" else (0.02 if offseason == "stover_mulch" else -0.04)
     erosion_score = _clip01(float(row["erosion_protection_prior"]) - slope_penalty + exposure_adj + residue_adj)
 
-    # 4. Income & market: reflect Ashanti demand minus climate/review risk discount
+    # 4. Income & market: Ashanti demand, fertilizer savings, and drought discount
     demand = str(minor_crop.get("market_demand_ashanti", "high")).lower()
     demand_adj = 0.02 if demand == "high" else (-0.03 if demand == "low_direct" else 0.0)
+    urea_bags_saved = round(n_fix / 23.0, 2)  # 1 x 50 kg urea bag @ 46% N = 23 kg N
+    bare_days_avoided = 75 if offseason == "mucuna_residue" else (45 if offseason == "stover_mulch" else 0)
+    fert_bonus = min(0.03, 0.008 * urea_bags_saved)
     review_status = str(row.get("expert_review_status", "literature_cited"))
-    income_score = _clip01(float(row["income_market_prior"]) + demand_adj - 0.5 * dry_penalty)
+    income_score = _clip01(float(row["income_market_prior"]) + demand_adj + fert_bonus - 0.5 * dry_penalty)
 
     scores = [round(water_score, 4), round(soil_score, 4), round(erosion_score, 4), round(income_score, 4)]
 
@@ -195,15 +226,23 @@ def _score_single_strategy(
     benefits = [
         str(row["agronomic_rationale"]).strip(),
         (
-            f"Fixes ~{int(n_fix)} kg N/ha and maintains {offseason.replace('_', ' ')} cover."
+            f"Fixes ~{int(n_fix)} kg N/ha (~{urea_bags_saved:.2f} urea bags/ha offset) "
+            f"and avoids ~{bare_days_avoided} Harmattan bare-soil days via {offseason.replace('_', ' ')}."
             if n_fix > 0
-            else f"Relies on {offseason.replace('_', ' ')} surface management with zero synthetic N offset."
+            else (
+                f"Avoids ~{bare_days_avoided} bare-soil days via {offseason.replace('_', ' ')} "
+                f"with zero biological N fixation."
+            )
         ),
     ]
     gaps = [
-        "No plot-level lab soil organic carbon or lime/calcium assay loaded; ISRIC SoilGrids is a 250 m model estimate.",
+        "Plot-level lab soil organic carbon and calcium still need verification (remote soil maps average 30-250 m pixels).",
         "Local farmgate price volatility and labour hours during planting window require farmer verification.",
     ]
+    if climate["flash_drought_dekads"] >= 1.0:
+        gaps.append(
+            "Detected rainfall-NDVI decoupling (flash-drought dekads); inspect soil surface crusting and infiltration on plot."
+        )
     if climate["rain_trend_mm_yr"] < -10.0:
         gaps.append("Observed negative rainfall Sen slope increases urgency for in-situ rain-gauge comparison.")
     if slope_excess > 0:

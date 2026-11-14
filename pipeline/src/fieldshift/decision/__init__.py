@@ -11,6 +11,7 @@ from fieldshift.decision.stress_test import (
     DEFAULT_STRESS_PRESETS,
     build_climate_stress_presets,
     evaluate_climate_stress,
+    evaluate_minimax_regret,
     perturb_cell_features,
 )
 
@@ -21,6 +22,7 @@ __all__ = [
     "base_scores",
     "build_climate_stress_presets",
     "evaluate_climate_stress",
+    "evaluate_minimax_regret",
     "perturb_cell_features",
     "rank_probabilities",
     "score_strategies_for_cell",

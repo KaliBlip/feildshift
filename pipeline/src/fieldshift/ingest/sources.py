@@ -195,6 +195,103 @@ def fetch_soilgrids_point(
     return summary, record
 
 
+ISDASOIL_BASE_URL = "https://api.isda-africa.com"
+
+
+def _extract_isda_value(prop_payload: Any, depth: str = "0-20") -> float | None:
+    if not isinstance(prop_payload, dict):
+        return None
+    if depth in prop_payload and isinstance(prop_payload[depth], dict):
+        val = prop_payload[depth].get("value", prop_payload[depth].get("mean"))
+        if isinstance(val, dict):
+            val = val.get("value", val.get("mean"))
+        return float(val) if val is not None else None
+    for entry in prop_payload.get("property", []) if isinstance(prop_payload.get("property"), list) else []:
+        if isinstance(entry, dict) and entry.get("depth") in (depth, "0-20cm"):
+            val = entry.get("value")
+            if isinstance(val, dict):
+                val = val.get("value")
+            return float(val) if val is not None else None
+    return None
+
+
+def fetch_isdasoil_point(
+    lat: float,
+    lon: float,
+    username: str | None = None,
+    password: str | None = None,
+    timeout: int = 20,
+    session: requests.Session | None = None,
+) -> tuple[dict[str, Any], ProvenanceRecord]:
+    """Query free CC-BY-4.0 iSDAsoil v2 API (30 m African topsoil) using optional credentials."""
+    user = username if username is not None else os.environ.get("ISDASOIL_USERNAME", "").strip()
+    pwd = password if password is not None else os.environ.get("ISDASOIL_PASSWORD", "").strip()
+    if not user or not pwd:
+        raise ValueError("ISDASOIL_USERNAME and ISDASOIL_PASSWORD are required for iSDAsoil v2 lookup")
+
+    client = session or requests
+    auth_resp = client.post(
+        f"{ISDASOIL_BASE_URL}/login",
+        data={"username": user, "password": pwd},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=timeout,
+    )
+    auth_resp.raise_for_status()
+    token = auth_resp.json().get("access_token")
+    if not token:
+        raise RuntimeError("iSDAsoil authentication response missing access_token")
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    params = [("lat", f"{lat:.5f}"), ("lon", f"{lon:.5f}"), ("depth", "0-20")]
+    for prop in ("ph", "carbon_organic", "nitrogen_total", "clay_content", "sand_content", "silt_content"):
+        params.append(("property", prop))
+
+    resp = client.get(
+        f"{ISDASOIL_BASE_URL}/isdasoil/v2/soilproperty",
+        headers=headers,
+        params=params,
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    props = payload.get("property", payload) if isinstance(payload, dict) else {}
+
+    ph_val = _extract_isda_value(props.get("ph"))
+    soc_val = _extract_isda_value(props.get("carbon_organic"))
+    n_val = _extract_isda_value(props.get("nitrogen_total"))
+    clay_pct = round(_extract_isda_value(props.get("clay_content")) or 20.0, 1)
+    sand_pct = round(_extract_isda_value(props.get("sand_content")) or 50.0, 1)
+    silt_pct = round(_extract_isda_value(props.get("silt_content")) or max(0.0, 100.0 - clay_pct - sand_pct), 1)
+
+    summary = {
+        "lat": lat,
+        "lon": lon,
+        "resolution_km": 0.03,
+        "source": "isdasoil_v2",
+        "soil_ph": round(ph_val if ph_val is not None else 5.8, 2),
+        "soil_organic_carbon_g_kg": round(soc_val if soc_val is not None else 14.0, 2),
+        "total_nitrogen_g_kg": round(n_val, 3) if n_val is not None else None,
+        "clay_pct": clay_pct,
+        "sand_pct": sand_pct,
+        "silt_pct": silt_pct,
+        "soil_texture": classify_usda_texture(clay_pct, sand_pct),
+    }
+
+    spec = DATASETS_REGISTRY["isdasoil"]
+    record = ProvenanceRecord(
+        dataset_key=spec.dataset_key,
+        short_name=spec.short_name,
+        product_version=spec.product_version,
+        retrieval_mode="live",
+        bbox=(round(lon - 0.0003, 4), round(lat - 0.0003, 4), round(lon + 0.0003, 4), round(lat + 0.0003, 4)),
+        temporal_range=("static", "static"),
+        source_uri=f"{ISDASOIL_BASE_URL}/isdasoil/v2/soilproperty?lat={lat:.4f}&lon={lon:.4f}",
+        payload_sha256=compute_payload_sha256(payload),
+        record_count=len(props) if isinstance(props, dict) else 1,
+    )
+    return summary, record
+
+
 def search_earthaccess_granules(
     short_name: str,
     bbox: tuple[float, float, float, float],

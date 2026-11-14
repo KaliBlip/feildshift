@@ -98,3 +98,73 @@ export function applyClimateStressToStrategies(
     return [stressedWater, stressedSoil, stressedErosion, stressedIncome];
   });
 }
+
+export interface MinimaxRegretRow {
+  code: string;
+  worstCaseScore: number;
+  maxRegret: number;
+}
+
+export interface MinimaxRegretSummary {
+  lowestRegretCode: string;
+  rowsByCode: Record<string, MinimaxRegretRow>;
+}
+
+/**
+ * Minimax climate regret across all stress presets: picks the strategy with
+ * the smallest worst-case gap to the best possible choice in any weather scenario.
+ */
+export function computeMinimaxRegretRankings(
+  strategies: RotationStrategySpec[],
+  weights: number[],
+  scoreFn: (scores: number[][], weights: number[]) => number[],
+): MinimaxRegretSummary {
+  if (strategies.length === 0) {
+    return { lowestRegretCode: '', rowsByCode: {} };
+  }
+
+  const scenarioMatrices = CLIMATE_STRESS_SCENARIOS.map((scenario) =>
+    scoreFn(applyClimateStressToStrategies(strategies, scenario.id), weights),
+  );
+  const scenarioBest = scenarioMatrices.map((scores) => Math.max(...scores));
+
+  let lowestRegretCode = strategies[0].code;
+  let smallestMaxRegret = Number.POSITIVE_INFINITY;
+  let bestTieWorstCase = Number.NEGATIVE_INFINITY;
+  const rowsByCode: Record<string, MinimaxRegretRow> = {};
+
+  for (let i = 0; i < strategies.length; i++) {
+    const code = strategies[i].code;
+    let worstCase = Number.POSITIVE_INFINITY;
+    let maxRegret = 0;
+
+    for (let s = 0; s < scenarioMatrices.length; s++) {
+      const score = scenarioMatrices[s][i];
+      const regret = Math.max(0, scenarioBest[s] - score);
+      if (score < worstCase) {
+        worstCase = score;
+      }
+      if (regret > maxRegret) {
+        maxRegret = regret;
+      }
+    }
+
+    const row: MinimaxRegretRow = {
+      code,
+      worstCaseScore: Number(worstCase.toFixed(4)),
+      maxRegret: Number(maxRegret.toFixed(4)),
+    };
+    rowsByCode[code] = row;
+
+    if (
+      row.maxRegret < smallestMaxRegret ||
+      (row.maxRegret === smallestMaxRegret && row.worstCaseScore > bestTieWorstCase)
+    ) {
+      smallestMaxRegret = row.maxRegret;
+      bestTieWorstCase = row.worstCaseScore;
+      lowestRegretCode = code;
+    }
+  }
+
+  return { lowestRegretCode, rowsByCode };
+}

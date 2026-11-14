@@ -115,6 +115,15 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
         temporal_cadence="static",
         limitation_note="Global modelled soil properties; verify pH and nutrients with local soil tests.",
     ),
+    "isdasoil": DatasetSpec(
+        dataset_key="isdasoil",
+        short_name="ISDASOIL_V2_30M",
+        provider="iSDA Africa (CC BY 4.0)",
+        product_version="2.0",
+        resolution_km=0.03,
+        temporal_cadence="static",
+        limitation_note="30 m Africa topsoil predictions (0-20 cm); verify pH/calcium and nutrients locally.",
+    ),
     "era5_land": DatasetSpec(
         dataset_key="era5_land",
         short_name="ECMWF_ERA5_LAND",

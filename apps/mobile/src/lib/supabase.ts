@@ -242,3 +242,180 @@ export async function fetchLivePilotStrategies(
     return null;
   }
 }
+
+export interface DecisionLogInput {
+  cellId: string;
+  sessionLabel?: string | null;
+  existingRotation?: string;
+  selectedStrategyCode: string;
+  farmAreaHa: number;
+  priorityWeights: number[];
+  computedBaseScores: Record<string, number>;
+  rankProbabilities: Record<string, number>;
+  reasoningNotes?: string | null;
+}
+
+export interface OutcomeReportInput {
+  cellId: string;
+  seasonYear: number;
+  seasonName: string;
+  outcomeSummary: string;
+  soilCoverObserved?: string | null;
+  waterStressObserved?: string | null;
+  pestOrDiseaseNotes?: string | null;
+}
+
+interface QueuedSubmission {
+  table: 'decision_logs' | 'outcome_reports';
+  row: Record<string, unknown>;
+}
+
+export interface SubmissionResult {
+  status: 'submitted' | 'queued';
+  queuedCount: number;
+}
+
+const QUEUE_STORAGE_KEY = 'fieldshift.pending.submissions';
+let MEMORY_SUBMISSION_QUEUE: QueuedSubmission[] | null = null;
+
+function readQueue(): QueuedSubmission[] {
+  if (MEMORY_SUBMISSION_QUEUE !== null) {
+    return [...MEMORY_SUBMISSION_QUEUE];
+  }
+  const storage = getOptionalWebStorage();
+  if (storage) {
+    try {
+      const raw = storage.getItem(QUEUE_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          MEMORY_SUBMISSION_QUEUE = parsed as QueuedSubmission[];
+          return [...MEMORY_SUBMISSION_QUEUE];
+        }
+      }
+    } catch {
+      // Ignore corrupt local queue entries
+    }
+  }
+  MEMORY_SUBMISSION_QUEUE = [];
+  return [];
+}
+
+function writeQueue(items: QueuedSubmission[]): void {
+  MEMORY_SUBMISSION_QUEUE = [...items];
+  const storage = getOptionalWebStorage();
+  if (storage) {
+    try {
+      storage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      // Ignore storage quota / private mode failures
+    }
+  }
+}
+
+async function postSupabaseRow(
+  cfg: { url: string; anonKey: string },
+  table: QueuedSubmission['table'],
+  row: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${cfg.url}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {
+        apikey: cfg.anonKey,
+        Authorization: `Bearer ${cfg.anonKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(row),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function submitOrQueue(
+  table: QueuedSubmission['table'],
+  row: Record<string, unknown>,
+): Promise<SubmissionResult> {
+  const cfg = getSupabaseConfig();
+  if (cfg) {
+    const ok = await postSupabaseRow(cfg, table, row);
+    if (ok) {
+      return { status: 'submitted', queuedCount: readQueue().length };
+    }
+  }
+  const nextQueue = [...readQueue(), { table, row }];
+  writeQueue(nextQueue);
+  return { status: 'queued', queuedCount: nextQueue.length };
+}
+
+export function getQueuedSubmissionCount(): number {
+  return readQueue().length;
+}
+
+export async function flushQueuedSubmissions(): Promise<{
+  flushed: number;
+  remaining: number;
+}> {
+  const cfg = getSupabaseConfig();
+  const pending = readQueue();
+  if (!cfg || pending.length === 0) {
+    return { flushed: 0, remaining: pending.length };
+  }
+  const stillPending: QueuedSubmission[] = [];
+  let flushed = 0;
+  for (const item of pending) {
+    const ok = await postSupabaseRow(cfg, item.table, item.row);
+    if (ok) {
+      flushed += 1;
+    } else {
+      stillPending.push(item);
+    }
+  }
+  writeQueue(stillPending);
+  return { flushed, remaining: stillPending.length };
+}
+
+/**
+ * Submit a farmer strategy selection to Supabase `decision_logs` (RLS: logged_by_role = 'farmer'),
+ * or store it in the offline queue when disconnected.
+ */
+export async function submitDecisionLog(
+  input: DecisionLogInput,
+): Promise<SubmissionResult> {
+  return submitOrQueue('decision_logs', {
+    cell_id: input.cellId,
+    session_label: input.sessionLabel ?? null,
+    logged_by_role: 'farmer',
+    existing_rotation: input.existingRotation ?? 'continuous_maize',
+    selected_strategy_code: input.selectedStrategyCode,
+    farm_area_ha: Number(input.farmAreaHa.toFixed(2)),
+    priority_weights: input.priorityWeights,
+    computed_base_scores: input.computedBaseScores,
+    rank_probabilities: input.rankProbabilities,
+    reasoning_notes: input.reasoningNotes ?? null,
+  });
+}
+
+/**
+ * Submit an end-of-season field observation to Supabase `outcome_reports`
+ * (RLS: evidence_grade = 'farmer_reported' AND eligible_for_model_update = false).
+ */
+export async function submitOutcomeReport(
+  input: OutcomeReportInput,
+): Promise<SubmissionResult> {
+  return submitOrQueue('outcome_reports', {
+    decision_id: null,
+    cell_id: input.cellId,
+    season_year: input.seasonYear,
+    season_name: input.seasonName,
+    outcome_summary: input.outcomeSummary,
+    soil_cover_observed: input.soilCoverObserved ?? null,
+    water_stress_observed: input.waterStressObserved ?? null,
+    pest_or_disease_notes: input.pestOrDiseaseNotes ?? null,
+    evidence_grade: 'farmer_reported',
+    eligible_for_model_update: false,
+  });
+}

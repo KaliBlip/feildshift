@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -52,10 +52,55 @@ const CONFIDENCE_BY_TIER: Record<
   unverified_hypothesis: 42,
 };
 
+const SEASON_NAME_OPTIONS = [
+  { id: 'Major', label: 'Major' },
+  { id: 'Minor', label: 'Minor' },
+  { id: 'Dry', label: 'Dry' },
+] as const;
+
+const COVER_OPTIONS = [
+  { id: 'Intact', label: 'Good cover' },
+  { id: 'Partial', label: 'Partial' },
+  { id: 'Bare', label: 'Bare soil' },
+] as const;
+
 export default function PassportScreen() {
   const theme = useTheme();
-  const { selectedCell, passports, dataSourceMode } = usePilotState();
+  const {
+    selectedCell,
+    passports,
+    dataSourceMode,
+    queuedLogsCount,
+    logFieldOutcome,
+  } = usePilotState();
   const [tierFilter, setTierFilter] = useState<TierFilter>('all');
+  const [showOutcomeForm, setShowOutcomeForm] = useState(false);
+  const [seasonName, setSeasonName] = useState<'Major' | 'Minor' | 'Dry'>('Major');
+  const [soilCover, setSoilCover] = useState<'Intact' | 'Partial' | 'Bare'>('Intact');
+  const [outcomeNotes, setOutcomeNotes] = useState('');
+  const [outcomeStatus, setOutcomeStatus] = useState<string | null>(null);
+
+  const handleSubmitOutcome = async () => {
+    const trimmed = outcomeNotes.trim();
+    if (!trimmed) {
+      setOutcomeStatus('Enter brief crop cover or rainfall observations first.');
+      return;
+    }
+    const res = await logFieldOutcome({
+      seasonYear: 2026,
+      seasonName,
+      outcomeSummary: trimmed,
+      soilCoverObserved: soilCover,
+      waterStressObserved: 'Field check recorded',
+      pestOrDiseaseNotes: null,
+    });
+    setOutcomeNotes('');
+    setOutcomeStatus(
+      res.status === 'submitted'
+        ? 'Submitted for officer verification (does not auto-shift model).'
+        : `Queued offline (${res.queuedCount} waiting) until connection returns.`,
+    );
+  };
 
   const visiblePassports = passports.filter((ep) => {
     if (tierFilter === 'data') return ep.evidenceTier === 'data_derived_finding';
@@ -199,6 +244,87 @@ export default function PassportScreen() {
             </Collapsible>
           ))}
         </View>
+
+        <View
+          style={[
+            styles.passportCard,
+            CardShadow,
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}>
+          <Pressable
+            onPress={() => setShowOutcomeForm((v) => !v)}
+            style={styles.cardHeader}>
+            <View style={styles.flexOne}>
+              <ThemedText type="sectionTitle">
+                Submit Field Outcome Check
+              </ThemedText>
+              <ThemedText type="small" themeColor="textMuted">
+                Saved for extension-officer review before model recalibration
+                {queuedLogsCount > 0 ? ` · ${queuedLogsCount} queued` : ''}
+              </ThemedText>
+            </View>
+            <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
+              {showOutcomeForm ? 'Hide' : 'Report'}
+            </ThemedText>
+          </Pressable>
+
+          {showOutcomeForm && (
+            <View style={styles.outcomeBody}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Season &amp; ground cover observed ({selectedCell.cellId})
+              </ThemedText>
+              <SegmentedPillBar
+                options={SEASON_NAME_OPTIONS}
+                selectedId={seasonName}
+                onSelect={(id) =>
+                  setSeasonName(id as 'Major' | 'Minor' | 'Dry')
+                }
+              />
+              <SegmentedPillBar
+                options={COVER_OPTIONS}
+                selectedId={soilCover}
+                onSelect={(id) =>
+                  setSoilCover(id as 'Intact' | 'Partial' | 'Bare')
+                }
+              />
+              <TextInput
+                value={outcomeNotes}
+                onChangeText={setOutcomeNotes}
+                placeholder="e.g., Cowpea relay kept soil moist through 10-day dry spell"
+                placeholderTextColor={theme.textMuted}
+                multiline
+                style={[
+                  styles.outcomeInput,
+                  {
+                    color: theme.text,
+                    borderColor: theme.border,
+                    backgroundColor: theme.backgroundElement,
+                  },
+                ]}
+              />
+              <Pressable
+                onPress={() => void handleSubmitOutcome()}
+                style={({ pressed }) => [
+                  styles.submitOutcomeBtn,
+                  { backgroundColor: theme.primarySoft },
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
+                  Submit Field Observation
+                </ThemedText>
+              </Pressable>
+            </View>
+          )}
+
+          {outcomeStatus !== null && (
+            <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
+              {outcomeStatus}
+            </ThemedText>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -259,4 +385,23 @@ const styles = StyleSheet.create({
   glossaryBody: {
     gap: 6,
   },
+  outcomeBody: {
+    gap: 10,
+    paddingTop: 4,
+  },
+  outcomeInput: {
+    minHeight: 74,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    padding: 10,
+    textAlignVertical: 'top',
+    fontSize: 14,
+  },
+  submitOutcomeBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: Radii.md,
+    alignItems: 'center',
+  },
+  pressed: { opacity: 0.75 },
 });

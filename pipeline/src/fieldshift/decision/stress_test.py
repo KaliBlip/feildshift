@@ -196,3 +196,63 @@ def build_climate_stress_presets(
         res["label"] = preset["label"]
         outputs.append(res)
     return outputs
+
+
+def evaluate_minimax_regret(
+    cell_id: str,
+    cell_features_df: pd.DataFrame,
+    crops_df: pd.DataFrame,
+    rotations_df: pd.DataFrame,
+    slope_pct: float = 5.4,
+    soil_ph: float | None = None,
+    weights: Sequence[float] = DEFAULT_WEIGHTS,
+    runs: int = 500,
+) -> dict[str, Any]:
+    """Compute worst-case score and minimax climate regret across all stress presets."""
+    presets = build_climate_stress_presets(
+        cell_id=cell_id,
+        cell_features_df=cell_features_df,
+        crops_df=crops_df,
+        rotations_df=rotations_df,
+        slope_pct=slope_pct,
+        soil_ph=soil_ph,
+        weights=weights,
+        runs=runs,
+    )
+    if not presets or not presets[0]["strategies"]:
+        return {"cell_id": cell_id, "lowest_regret_strategy_code": None, "strategies": []}
+
+    scores_by_code: dict[str, list[float]] = {}
+    ranks_by_code: dict[str, list[int]] = {}
+    names_by_code: dict[str, str] = {}
+    regrets_by_code: dict[str, list[float]] = {}
+
+    for scenario in presets:
+        best_in_scenario = max(float(s["base_score"]) for s in scenario["strategies"])
+        for row in scenario["strategies"]:
+            code = str(row["strategy_code"])
+            names_by_code[code] = str(row["strategy_name"])
+            val = float(row["base_score"])
+            scores_by_code.setdefault(code, []).append(val)
+            ranks_by_code.setdefault(code, []).append(int(row["rank"]))
+            regrets_by_code.setdefault(code, []).append(round(best_in_scenario - val, 4))
+
+    summary: list[dict[str, Any]] = []
+    for code, vals in scores_by_code.items():
+        summary.append(
+            {
+                "strategy_code": code,
+                "strategy_name": names_by_code[code],
+                "worst_case_score": round(min(vals), 4),
+                "mean_scenario_score": round(sum(vals) / len(vals), 4),
+                "max_regret": round(max(regrets_by_code[code]), 4),
+                "worst_rank": max(ranks_by_code[code]),
+            }
+        )
+
+    summary.sort(key=lambda r: (float(r["max_regret"]), -float(r["worst_case_score"])))
+    return {
+        "cell_id": cell_id,
+        "lowest_regret_strategy_code": summary[0]["strategy_code"] if summary else None,
+        "strategies": summary,
+    }

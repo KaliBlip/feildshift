@@ -104,6 +104,23 @@ def stress_test(req: StressTestRequest):
         req.runs,
         req.seed,
     )
+
+    # Compute minimax regret across standard presets relative to scenario maxima
+    scenario_scores: list[np.ndarray] = [base_totals]
+    for preset in ASHANTI_ANALOG_PRESETS.values():
+        mat = _apply_stress_matrix(
+            base_mat,
+            req.is_baseline,
+            float(preset["rain_factor"]),
+            float(preset["temp_delta_c"]),
+        )
+        scenario_scores.append(base_scores(mat, W))
+    stacked = np.vstack(scenario_scores)
+    best_per_scenario = np.max(stacked, axis=1, keepdims=True)
+    max_regret = np.max(best_per_scenario - stacked, axis=0)
+    worst_case = np.min(stacked, axis=0)
+    lowest_regret_idx = int(np.argmin(max_regret))
+
     return {
         "strategies": req.strategies,
         "rain_factor": req.rain_factor,
@@ -112,5 +129,8 @@ def stress_test(req: StressTestRequest):
         "stressed_scores": stressed_mat.round(4).tolist(),
         "base_scores": stressed_totals.tolist(),
         "deltas": np.round(stressed_totals - base_totals, 4).tolist(),
+        "worst_case_scores": np.round(worst_case, 4).tolist(),
+        "max_regrets": np.round(max_regret, 4).tolist(),
+        "lowest_regret_strategy": req.strategies[lowest_regret_idx] if req.strategies else None,
         **result,
     }

@@ -23,6 +23,7 @@ from fieldshift.features import estimate_hargreaves_et0, extract_season_features
 from fieldshift.ingest import (
     NON_GLOBAL_US_BASELINES,
     fetch_earthdata_ashanti_snapshot,
+    fetch_isdasoil_point,
     fetch_nasa_power_daily,
     fetch_soilgrids_point,
     generate_ashanti_pilot_raw_daily,
@@ -218,14 +219,30 @@ def _fetch_optional_live_cell_baselines(
     except Exception:
         power_df = None
 
-    try:
-        s_sum, s_rec = fetch_soilgrids_point(lat=lat, lon=lon)
-        soil_summary = s_sum
-        live_records.append(asdict(s_rec))
-    except Exception:
-        soil_summary = None
+    s_sum, s_rec_dict = _fetch_best_soil_baseline(lat=lat, lon=lon)
+    soil_summary = s_sum
+    if s_rec_dict is not None:
+        live_records.append(s_rec_dict)
 
     return power_df, soil_summary, live_records
+
+
+def _fetch_best_soil_baseline(
+    lat: float,
+    lon: float,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Fetch 30 m iSDAsoil baseline when configured, falling back seamlessly to SoilGrids 250 m."""
+    if os.environ.get("ISDASOIL_USERNAME") and os.environ.get("ISDASOIL_PASSWORD"):
+        try:
+            s_sum, s_rec = fetch_isdasoil_point(lat=lat, lon=lon)
+            return s_sum, asdict(s_rec)
+        except Exception:
+            pass
+    try:
+        s_sum, s_rec = fetch_soilgrids_point(lat=lat, lon=lon)
+        return s_sum, asdict(s_rec)
+    except Exception:
+        return None, None
 
 
 def _merge_power_rain_and_temp(daily_df: pd.DataFrame, power_df: pd.DataFrame) -> pd.DataFrame:
@@ -322,15 +339,12 @@ def build_pilot_bundle(
                 power_df, cached_p_rec = power_cache[p_key]
                 if cached_p_rec is not None:
                     live_prov.append(cached_p_rec)
-                try:
-                    s_sum, s_rec = fetch_soilgrids_point(
-                        lat=float(cell["centre_lat"]),
-                        lon=float(cell["centre_lon"]),
-                    )
-                    soil_summary = s_sum
-                    live_prov.append(asdict(s_rec))
-                except Exception:
-                    soil_summary = None
+                soil_summary, s_rec_dict = _fetch_best_soil_baseline(
+                    lat=float(cell["centre_lat"]),
+                    lon=float(cell["centre_lon"]),
+                )
+                if s_rec_dict is not None:
+                    live_prov.append(s_rec_dict)
             else:
                 power_df, soil_summary, cell_live_prov = _fetch_optional_live_cell_baselines(
                     lat=float(cell["centre_lat"]),

@@ -144,6 +144,61 @@ def compute_erosion_exposure_index(
     return round(float(np.clip(score, 0.0, 1.0)), 4)
 
 
+def compute_water_satisfaction_index(
+    rain_dekad_mm: np.ndarray | pd.Series,
+    et0_dekad_mm: np.ndarray | pd.Series,
+) -> float:
+    """Compute WaPOR-style seasonal supply/demand ratio (sum(P) / sum(ET0))."""
+    rain_sum = float(np.nansum(np.asarray(rain_dekad_mm, dtype=float)))
+    et0_sum = float(np.nansum(np.asarray(et0_dekad_mm, dtype=float)))
+    if et0_sum <= 1e-6:
+        return 1.0 if rain_sum > 0 else 0.0
+    return round(float(np.clip(rain_sum / et0_sum, 0.0, 3.0)), 4)
+
+
+def compute_max_water_deficit_mm(
+    rain_dekad_mm: np.ndarray | pd.Series,
+    et0_dekad_mm: np.ndarray | pd.Series,
+) -> float:
+    """Compute peak cumulative seasonal evaporative deficit sum(ET0 - P) in mm."""
+    rain = np.nan_to_num(np.asarray(rain_dekad_mm, dtype=float), nan=0.0)
+    et0 = np.nan_to_num(np.asarray(et0_dekad_mm, dtype=float), nan=0.0)
+    deficit = 0.0
+    worst = 0.0
+    for p_val, e_val in zip(rain, et0):
+        deficit = max(0.0, deficit + (float(e_val) - float(p_val)))
+        if deficit > worst:
+            worst = deficit
+    return round(worst, 2)
+
+
+def detect_flash_drought_dekads(cube_window: pd.DataFrame) -> int:
+    """Count dekads showing rainfall-vegetation decoupling (flash drought / runoff loss).
+
+    Flags dekads where rainfall appears adequate (>= 15 mm) yet root-zone moisture
+    drops abnormally (smap_anomaly_z <= -0.8) alongside a sharp NDVI drop (>= 0.03).
+    """
+    if cube_window.empty or len(cube_window) < 2:
+        return 0
+    s = cube_window.sort_values("dekad")
+    rain = s["rain_imerg_mm"].to_numpy(dtype=float)
+    sm_z = s["smap_anomaly_z"].to_numpy(dtype=float)
+    ndvi = s["ndvi_smooth"].to_numpy(dtype=float)
+    count = 0
+    for idx in range(1, len(s)):
+        if (
+            np.isfinite(rain[idx])
+            and np.isfinite(sm_z[idx])
+            and np.isfinite(ndvi[idx])
+            and np.isfinite(ndvi[idx - 1])
+            and rain[idx] >= 15.0
+            and sm_z[idx] <= -0.8
+            and (ndvi[idx - 1] - ndvi[idx]) >= 0.03
+        ):
+            count += 1
+    return int(count)
+
+
 def extract_season_features(
     cube_df: pd.DataFrame,
     daily_df: pd.DataFrame | None = None,
@@ -246,6 +301,10 @@ def extract_season_features(
                 heavy_rain_days=heavy_days,
                 total_days=total_days,
             )
+            et0_vec = win["et0_mm"].to_numpy(dtype=float) if "et0_mm" in win.columns else np.zeros_like(rain_vec)
+            water_sat = compute_water_satisfaction_index(rain_vec, et0_vec)
+            max_deficit = compute_max_water_deficit_mm(rain_vec, et0_vec)
+            flash_dekads = detect_flash_drought_dekads(win)
 
             rows.append(
                 {
@@ -263,6 +322,9 @@ def extract_season_features(
                     "ndvi_peak": ndvi_peak,
                     "bare_period_fraction": bare_frac,
                     "erosion_exposure_index": erosion_idx,
+                    "water_satisfaction_index": water_sat,
+                    "max_water_deficit_mm": max_deficit,
+                    "flash_drought_dekads": flash_dekads,
                 }
             )
 
