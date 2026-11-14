@@ -1,21 +1,32 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const geistSans = Geist({
+const geistSans = localFont({
+  src: "../../public/geist-latin.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  display: "swap",
+  weight: "100 900",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "../../public/geist-mono-latin.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
+  weight: "100 900",
 });
 
 export const metadata: Metadata = {
-  title: "Field Shift | Crop-Rotation Decision Support",
+  title: "ScalarField | Agriculture, Informed by Earth",
   description:
-    "Evidence-graded crop-rotation decision support for Ashanti Region, Ghana, powered by NASA Earth observations.",
+    "ScalarField translates NASA Earth observations and machine learning into clear, actionable agricultural intelligence — helping farmers navigate climate uncertainty with confidence.",
+  keywords: ["agricultural intelligence", "NASA Earth observations", "precision farming", "satellite data", "crop forecasting"],
+  openGraph: {
+    title: "ScalarField | Agriculture, Informed by Earth",
+    description:
+      "Translating satellite data into farmer-centred decisions. Powered by NASA Earth observations and agricultural science.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
