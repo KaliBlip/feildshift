@@ -109,7 +109,6 @@ export function applyScenario(
 
 export function ClimateStressTesting({
   observations,
-  seasons,
   onScenarioChange,
 }: ClimateStressTestingProps) {
   const [rainfallShift, setRainfallShift] = useState(0);
