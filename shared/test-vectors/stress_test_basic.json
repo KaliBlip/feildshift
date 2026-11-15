@@ -1,0 +1,78 @@
+{
+  "description": "Cross-language parity vector for climate stress perturbation and Minimax Regret across Python (apps/api) and TypeScript (apps/mobile).",
+  "strategies": [
+    "Existing rotation",
+    "Strategy A",
+    "Strategy B"
+  ],
+  "is_baseline": [
+    true,
+    false,
+    false
+  ],
+  "scores": [
+    [0.55, 0.4, 0.5, 0.3],
+    [0.7, 0.65, 0.6, 0.55],
+    [0.6, 0.8, 0.75, 0.45]
+  ],
+  "weights": [0.4, 0.3, 0.2, 0.1],
+  "expected_lowest_regret_strategy": "Strategy B",
+  "scenarios": {
+    "baseline": {
+      "rain_factor": 1.0,
+      "temp_delta_c": 0.0,
+      "expected_stressed_scores": [
+        [0.55, 0.4, 0.5, 0.3],
+        [0.7, 0.65, 0.6, 0.55],
+        [0.6, 0.8, 0.75, 0.45]
+      ],
+      "expected_base_scores": [
+        0.4700000000000001,
+        0.6500000000000001,
+        0.675
+      ]
+    },
+    "moderate_drought": {
+      "rain_factor": 0.8,
+      "temp_delta_c": 1.0,
+      "expected_stressed_scores": [
+        [0.4474, 0.3784, 0.5, 0.2001],
+        [0.6392, 0.6372, 0.6, 0.4908],
+        [0.5392, 0.7872, 0.75, 0.3908]
+      ],
+      "expected_base_scores": [
+        0.4124900000000001,
+        0.61592,
+        0.6409200000000002
+      ]
+    },
+    "severe_heat_drought": {
+      "rain_factor": 0.7,
+      "temp_delta_c": 2.0,
+      "expected_stressed_scores": [
+        [0.3826, 0.3676, 0.5, 0.1299],
+        [0.6008, 0.6308, 0.6, 0.4492],
+        [0.5008, 0.7808, 0.75, 0.3492]
+      ],
+      "expected_base_scores": [
+        0.37631000000000003,
+        0.5944800000000001,
+        0.6194800000000001
+      ]
+    },
+    "intense_rainfall": {
+      "rain_factor": 1.2,
+      "temp_delta_c": 0.5,
+      "expected_stressed_scores": [
+        [0.5365, 0.3784, 0.4335, 0.2527],
+        [0.692, 0.6372, 0.537, 0.522],
+        [0.592, 0.7872, 0.6922, 0.422]
+      ],
+      "expected_base_scores": [
+        0.4400900000000001,
+        0.6275600000000001,
+        0.6536000000000002
+      ]
+    }
+  }
+}
