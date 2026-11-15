@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +11,7 @@ import {
   SmartInsightCard,
   TopSearchRegionHeader,
 } from '@/components/design-system';
-import { ScaleFootprintDiagram } from '@/components/scale-footprint-diagram';
+import { PlannerIcon } from '@/components/icons';
 import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Heading, Label } from '@/components/ui';
@@ -130,20 +131,14 @@ const HOME_TIMEFRAMES = [
   { id: 'yr', label: 'Yr' },
 ];
 
-const TIER_LABELS = {
-  field_scale: 'Field scale',
-  sub_regional: 'Sub-regional',
-  regional_context_only: 'Regional context',
-} as const;
-
 export default function HomeScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const {
     cells,
     selectedCell,
     selectCell,
     farmAreaHa,
-    setFarmAreaHa,
   } = usePilotState();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -353,96 +348,83 @@ export default function HomeScreen() {
           tone="green"
         />
 
-        <View
-          style={[
-            styles.scaleCard,
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open Scale Honesty Check screen"
+          onPress={() => router.push('/scale-honesty')}
+          style={({ pressed }) => [
+            styles.scaleLauncherCard,
             CardShadow,
             {
               backgroundColor: theme.surface,
               borderColor: theme.border,
             },
+            pressed && styles.pressed,
           ]}>
-          <View style={styles.scaleHeader}>
+          <View style={styles.scaleLauncherTop}>
+            <View
+              style={[
+                styles.scaleLauncherIconBox,
+                { backgroundColor: theme.personal.surface },
+              ]}>
+              <PlannerIcon name="shield" size={20} color={theme.primary} />
+            </View>
+
             <View style={styles.flexOne}>
               <Label>SCALE HONESTY CHECK</Label>
               <ThemedText type="sectionTitle">
                 Your farm: {farmAreaHa.toFixed(1)} ha (
                 {(farmAreaHa / 100).toFixed(3)} km²)
               </ThemedText>
-            </View>
-
-            <View style={styles.stepperGroup}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Decrease farm area"
-                onPress={() => setFarmAreaHa(farmAreaHa - 0.5)}
-                style={({ pressed }) => [
-                  styles.stepperBtn,
-                  {
-                    backgroundColor: theme.surfaceSubtle,
-                    borderColor: theme.border,
-                  },
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText type="smallBold">−</ThemedText>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Increase farm area"
-                onPress={() => setFarmAreaHa(farmAreaHa + 0.5)}
-                style={({ pressed }) => [
-                  styles.stepperBtn,
-                  {
-                    backgroundColor: theme.primary,
-                    borderColor: theme.primary,
-                  },
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText
-                  type="smallBold"
-                  style={{ color: theme.onPrimary }}>
-                  +
-                </ThemedText>
-              </Pressable>
+              <ThemedText type="small" themeColor="secondary">
+                Compare 30 m field pixels (HLS/iSDAsoil) against coarse 9 km
+                SMAP regional boxes.
+              </ThemedText>
             </View>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={styles.scaleLauncherPillsRow}>
+            <View
+              style={[
+                styles.scaleBadge,
+                { backgroundColor: theme.sage.surface },
+              ]}>
+              <ThemedText type="code" style={{ color: theme.sage.ink }}>
+                {
+                  scaleAssessment.filter((entry) => entry.resolvesFarm)
+                    .length
+                }{' '}
+                field-scale sensors
+              </ThemedText>
+            </View>
+            <View
+              style={[
+                styles.scaleBadge,
+                { backgroundColor: theme.gold.surface },
+              ]}>
+              <ThemedText type="code" style={{ color: theme.gold.ink }}>
+                9 km SMAP regional
+              </ThemedText>
+            </View>
+          </View>
 
-          <ScaleFootprintDiagram farmAreaHa={farmAreaHa} />
-
-          {scaleAssessment.slice(0, 4).map((entry) => {
-            const isField = entry.resolvesFarm;
-            return (
-              <View key={entry.dataset} style={styles.scaleRow}>
-                <ThemedText
-                  type="small"
-                  themeColor="secondary"
-                  style={styles.flexOne}
-                  numberOfLines={1}>
-                  {entry.dataset}
-                </ThemedText>
-                <View
-                  style={[
-                    styles.scaleBadge,
-                    {
-                      backgroundColor: isField
-                        ? theme.sage.surface
-                        : theme.surfaceSubtle,
-                    },
-                  ]}>
-                  <ThemedText
-                    type="code"
-                    style={{
-                      color: isField ? theme.sage.ink : theme.secondary,
-                    }}>
-                    {TIER_LABELS[entry.advisoryTier]}
-                  </ThemedText>
-                </View>
-              </View>
-            );
-          })}
-        </View>
+          <View
+            style={[
+              styles.scaleLauncherBtn,
+              {
+                backgroundColor: theme.foreground,
+              },
+            ]}>
+            <Text
+              style={[
+                styles.scaleLauncherBtnText,
+                { color: theme.background },
+              ]}>
+              Open Scale Honesty Check
+            </Text>
+            <PlannerIcon name="chevron" size={16} color={theme.background} />
+          </View>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -520,45 +502,47 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: roofiRadii.pill,
   },
-  scaleCard: {
+  scaleLauncherCard: {
     borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
     padding: roofiSpacing[4],
     gap: 12,
   },
-  scaleHeader: {
+  scaleLauncherTop: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  scaleLauncherIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: roofiRadii.md,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: roofiSpacing[2],
-  },
-  flexOne: { flex: 1, gap: 2 },
-  stepperGroup: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  stepperBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: roofiRadii.pill,
-    borderWidth: 1,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  divider: {
-    height: 1,
-    width: '100%',
-  },
-  scaleRow: {
+  flexOne: { flex: 1, gap: 3 },
+  scaleLauncherPillsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: roofiSpacing[2],
+    flexWrap: 'wrap',
+    gap: 8,
   },
   scaleBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: roofiRadii.pill,
+  },
+  scaleLauncherBtn: {
+    minHeight: 46,
+    borderRadius: roofiRadii.pill,
+    paddingHorizontal: roofiSpacing[4],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  scaleLauncherBtnText: {
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   pressed: { opacity: 0.75 },
 });

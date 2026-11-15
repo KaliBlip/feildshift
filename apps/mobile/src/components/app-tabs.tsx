@@ -7,6 +7,8 @@ import { PlannerIcon, type PlannerIconName } from '@/components/icons';
 import { roofiRadii, roofiTypography } from '@/constants/theme';
 import { useTheme } from '@/theme/useTheme';
 
+const VISIBLE_TABS = new Set(['index', 'calendar', 'compare', 'passport']);
+
 const tabIcons: Record<string, PlannerIconName> = {
   index: 'home',
   calendar: 'calendar',
@@ -27,6 +29,11 @@ export function RoofiBottomTabBar({
   const { colors, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const isDark = scheme === 'dark';
+
+  const activeRouteName = state.routes[state.index]?.name;
+  if (activeRouteName && !VISIBLE_TABS.has(activeRouteName)) {
+    return null;
+  }
 
   return (
     <View
@@ -59,6 +66,7 @@ export function RoofiBottomTabBar({
           gap: 5,
         }}>
         {state.routes.map((route, index) => {
+          if (!VISIBLE_TABS.has(route.name)) return null;
           const options = descriptors[route.key]?.options as
             | {
                 href?: string | null;
@@ -191,6 +199,13 @@ export default function AppTabs() {
       <Tabs.Screen
         name="passport"
         options={{ title: 'Passport', tabBarAccessibilityLabel: 'Passport' }}
+      />
+      <Tabs.Screen
+        name="scale-honesty"
+        options={{
+          href: null,
+          title: 'Scale Honesty',
+        }}
       />
     </Tabs>
   );
