@@ -20,7 +20,6 @@ import {
 } from '@/constants/theme';
 import { usePilotState } from '@/hooks/use-pilot-state';
 import { useTheme } from '@/hooks/use-theme';
-import { toast } from '@/lib/toast';
 
 const TIER_LABELS: Record<ScaleHonestyEntry['advisoryTier'], string> = {
   field_scale: 'Field scale',
@@ -52,13 +51,6 @@ export default function ScaleHonestyScreen() {
 
   const handleSelectPresetHa = (ha: number) => {
     setFarmAreaHa(ha);
-    const resolved = evaluateMobileScaleHonesty(ha).filter(
-      (e) => e.resolvesFarm,
-    ).length;
-    toast.info(
-      `Farm parcel set to ${ha.toFixed(1)} ha`,
-      `${resolved} of ${scaleAssessment.length} satellite products resolve this parcel at field scale.`,
-    );
   };
 
   const handleStepHa = (delta: number) => {

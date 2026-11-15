@@ -11,7 +11,6 @@ import {
   TopBarHeader,
 } from '@/components/design-system';
 import { SmsShareModal } from '@/components/sms-share-modal';
-import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Label } from '@/components/ui';
 import {
@@ -68,7 +67,6 @@ export default function CompareScreen() {
     applyPreset,
     strategies,
     dataSourceMode,
-    queuedLogsCount,
     logFarmerDecision,
   } = usePilotState();
 
@@ -79,7 +77,6 @@ export default function CompareScreen() {
   const [viewMode, setViewMode] = useState<'cards' | 'matrix'>('cards');
   const [showPriorityEditor, setShowPriorityEditor] = useState(false);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
-  const [decisionFeedback, setDecisionFeedback] = useState<string | null>(null);
   const [smsPreview, setSmsPreview] = useState<{
     strategyName: string;
     message: string;
@@ -162,23 +159,11 @@ export default function CompareScreen() {
     if (preset) {
       setActivePresetId(id);
       applyPreset(preset.weights);
-      toast.info(
-        `Preset: ${preset.label}`,
-        'Recalculated MCDA scores & 2,000-run Dirichlet rank stability.',
-      );
     }
   };
 
   const handleSelectStress = (id: ClimateStressId) => {
     setStressId(id);
-    const scenario = CLIMATE_STRESS_SCENARIOS.find((s) => s.id === id);
-    if (scenario) {
-      if (id === 'baseline') {
-        toast.info('Baseline restored', scenario.label);
-      } else {
-        toast.warning(`Stress test: ${scenario.shortLabel}`, scenario.label);
-      }
-    }
   };
 
   const handleShareSms = (sIdx: number) => {
@@ -215,11 +200,6 @@ export default function CompareScreen() {
       rankProbabilities: rankProbMap,
       reasoningNotes: `Selected under ${activeScenario.shortLabel} preset`,
     });
-    setDecisionFeedback(
-      res.status === 'submitted'
-        ? `Logged ${strategyName} to Supabase decision log.`
-        : `Saved ${strategyName} offline (${res.queuedCount} queued to sync).`,
-    );
     if (res.status === 'submitted') {
       toast.success(
         `Logged ${strategyName}`,
@@ -269,8 +249,6 @@ export default function CompareScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <SyncStatusPill />
-
         <SegmentedPillBar
           options={PRESET_PILL_OPTIONS}
           selectedId={activePresetId}
@@ -315,22 +293,6 @@ export default function CompareScreen() {
           selectedId={viewMode}
           onSelect={(id) => setViewMode(id as 'cards' | 'matrix')}
         />
-
-        {(decisionFeedback !== null || queuedLogsCount > 0) && (
-          <View
-            style={[
-              styles.feedbackBanner,
-              {
-                backgroundColor: theme.sage.surface,
-                borderColor: theme.sage.edge,
-              },
-            ]}>
-            <ThemedText type="smallBold" style={{ color: theme.sage.ink }}>
-              {decisionFeedback ??
-                `${queuedLogsCount} field submission(s) waiting offline to sync.`}
-            </ThemedText>
-          </View>
-        )}
 
         {showPriorityEditor && (
           <View
@@ -789,12 +751,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: roofiRadii.pill,
-  },
-  feedbackBanner: {
-    borderRadius: roofiRadii.xl,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
   highlightChipsRow: {
     flexDirection: 'row',

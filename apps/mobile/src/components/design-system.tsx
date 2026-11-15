@@ -866,7 +866,7 @@ export function SmartInsightCard({
 
 export function FieldParcelBanner({
   badgeText,
-  accentColor = '#FF6A2B',
+  accentColor = '#3670FF',
 }: {
   badgeText: string;
   accentColor?: string;
@@ -885,7 +885,7 @@ export function FieldParcelBanner({
           styles.aerialPolygon,
           {
             borderColor: accentColor,
-            backgroundColor: 'rgba(255, 106, 43, 0.25)',
+            backgroundColor: 'rgba(54, 112, 255, 0.25)',
           },
         ]}>
         <View style={styles.aerialTagPill}>
@@ -927,13 +927,13 @@ export function ThreeZoneGaugeBar({
             style={[
               styles.gaugeSegment,
               styles.gaugeSegLeft,
-              { flex: 32, backgroundColor: '#F0B35A' },
+              { flex: 32, backgroundColor: '#F9D601' },
             ]}
           />
           <View
             style={[
               styles.gaugeSegment,
-              { flex: 38, backgroundColor: '#FF6A2B' },
+              { flex: 38, backgroundColor: '#3670FF' },
             ]}
           />
           <View

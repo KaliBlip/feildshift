@@ -1,5 +1,5 @@
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
@@ -7,12 +7,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sileo-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
 import { PilotStateProvider } from '@/hooks/use-pilot-state';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
-export default function TabLayout() {
+export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [fontsLoaded, fontError] = useFonts({
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- Expo bundles font assets from static requires.
@@ -40,7 +39,15 @@ export default function TabLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <PilotStateProvider>
           <AnimatedSplashOverlay />
-          <AppTabs />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="scale-honesty"
+              options={{
+                animation: 'slide_from_right',
+              }}
+            />
+          </Stack>
           <Toaster position="top-center" theme="system" />
         </PilotStateProvider>
       </ThemeProvider>
