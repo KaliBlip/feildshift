@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowRight, Brain, Compass, Leaf, Satellite, ShieldCheck, Smartphone } from "lucide-react";
@@ -79,34 +79,8 @@ function FarmlandArt() {
 
 /* ─── Challenge ─────────────────────────────────────────────────────── */
 function Challenge() {
-  const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const els = ref.current?.querySelectorAll(".reveal");
-    if (!els) return;
-    const revealVisible = () => {
-      els.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (rect.top < window.innerHeight * 1.05 && rect.bottom > -40) {
-          el.classList.add("visible");
-        }
-      });
-    };
-    revealVisible();
-    window.addEventListener("scroll", revealVisible, { passive: true });
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("visible")),
-      { threshold: 0.01, rootMargin: "0px" }
-    );
-    els.forEach((el) => observer.observe(el));
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("scroll", revealVisible);
-    };
-  }, []);
-
   return (
-    <section className="challenge section" id="about" ref={ref} aria-labelledby="challenge-heading">
+    <section className="challenge section" id="about" aria-labelledby="challenge-heading">
       <div className="container">
         <div className="challenge-inner">
           <div>
