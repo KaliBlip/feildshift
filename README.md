@@ -4,6 +4,7 @@
 
 **NASA Space Apps Challenge 2026 · Challenge: _Field Shift: Adapting Farms with NASA Data_**
 **Initial focus region: Ashanti Region, Ghana**
+**Live Web & API Deployment: [https://fieldshift.vercel.app](https://fieldshift.vercel.app)**
 
 ---
 
@@ -326,12 +327,12 @@ See [docs/BUILD_PHASES_AND_WORK_SPLIT.md](docs/BUILD_PHASES_AND_WORK_SPLIT.md) f
 | Phase | Goal | Primary Owner | Status |
 | ----- | ---- | ------------- | ------ |
 | 0. Repo & scoring parity | Monorepo structure, Next.js + Expo SDK 58 + FastAPI scaffolds, `1e-9` scoring parity | `kaliblip` + `OdinID-CS` | ✅ Done |
-| 1. Foundations & ingestion | Supabase schema, Ashanti pilot bbox, NASA/iSDAsoil/SoilGrids ingest, QC cube, priority inputs | `kaliblip` (pipeline/mobile) · `OdinID-CS` (web inputs) | ✅ Done (`kaliblip` & Phase 1 web) |
-| 2. Environmental intelligence & core visuals | Harmonised features (WaPOR `P/ET0`, flash drought), M1–M4 models, `knowledge/` CSVs, Web Calendar & Map | `kaliblip` (ML/knowledge) · `OdinID-CS` (calendar/map/scale UI) | ✅ `kaliblip` done · ⬜ Web pending |
-| 3. Decision & evidence layer | M6 fusion (N-fixation urea savings), M7 Passports, seeded Supabase, comparison cards, mobile & glossary | `kaliblip` (M6/M7/mobile) · `OdinID-CS` (cards/passport/glossary) | ✅ `kaliblip` done · ⬜ Web pending |
-| 4. Stress-testing & offline | Analog season replay, minimax regret, climate sliders, mobile offline cache & decision/outcome queue | `kaliblip` (analogs/regret/mobile) · `OdinID-CS` (sliders/PWA/print) | ✅ `kaliblip` done · ⬜ Web pending |
-| 5. Validation, localization & demo | Time-aware validation, M1–M8 model cards, mobile EN/Twi SMS export, Web i18n, officer workflow | `kaliblip` (validation/mobile) · `OdinID-CS` (i18n/officer/Vercel) | ✅ Pipeline & mobile done *(device QA pending)* · ⬜ Web pending |
-| 6. Scientific enhancements & scale-out | M8 conjugate Bayesian outcome updating (`models/feedback.py`), live Africa's Talking SMS/USSD, additional regions | `kaliblip` + `OdinID-CS` | 🟡 M8 engine & mobile logging done · ⬜ USSD gateway/regional expansion planned |
+| 1. Foundations & ingestion | Supabase schema, Ashanti pilot bbox, NASA/iSDAsoil/SoilGrids ingest, QC cube, priority inputs | `kaliblip` (pipeline/mobile) · `OdinID-CS` (web inputs) | ✅ Done |
+| 2. Environmental intelligence & core visuals | Harmonised features (WaPOR `P/ET0`, flash drought), M1–M4 models, `knowledge/` CSVs, Web Calendar & Map | `kaliblip` (ML/knowledge) · `OdinID-CS` (calendar/map/scale UI) | ✅ Done |
+| 3. Decision & evidence layer | M6 fusion (N-fixation urea savings), M7 Passports, seeded Supabase, comparison cards, mobile & glossary | `kaliblip` (M6/M7/mobile) · `OdinID-CS` (cards/passport/glossary) | ✅ Done |
+| 4. Stress-testing & offline | Analog season replay, minimax regret, climate sliders, mobile offline cache & decision/outcome queue | `kaliblip` (analogs/regret/mobile) · `OdinID-CS` (sliders/PWA/print) | ✅ Done |
+| 5. Validation, localization & demo | Time-aware validation, M1–M8 model cards, mobile EN/Twi SMS export, Web i18n, officer workflow, multi-service Vercel deploy (`https://fieldshift.vercel.app`) | `kaliblip` (validation/mobile/api) · `OdinID-CS` (i18n/officer/web) | ✅ Done |
+| 6. Scientific enhancements & scale-out | M8 conjugate Bayesian outcome updating (`models/feedback.py`), live Africa's Talking SMS/USSD & WhatsApp webhooks, mobile `roofi` design system & Scale Honesty audit | `kaliblip` + `OdinID-CS` | ✅ Done |
 
 ### Planned demo story
 

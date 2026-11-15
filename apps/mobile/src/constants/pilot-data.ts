@@ -124,6 +124,26 @@ export const ASHANTI_PILOT_CELLS: PilotCellSummary[] = [
     soilPh: 5.6,
     typicalAnnualRainMm: 1426,
   },
+  {
+    cellId: 'ASH_R05_C06',
+    zoneName: 'Sekyere Central Transition Corridor',
+    centreLat: 6.875,
+    centreLon: -1.375,
+    slopePct: 3.31,
+    soilTexture: 'Sandy loam',
+    soilPh: 5.6,
+    typicalAnnualRainMm: 1426,
+  },
+  {
+    cellId: 'ASH_R04_C06',
+    zoneName: 'Asante-Akim North Transition',
+    centreLat: 6.825,
+    centreLon: -1.375,
+    slopePct: 3.63,
+    soilTexture: 'Sandy loam',
+    soilPh: 5.5,
+    typicalAnnualRainMm: 1426,
+  },
 ];
 
 export const DEFAULT_FARM_AREA_HA = 2.0;

@@ -1,6 +1,6 @@
 import Slider from '@react-native-community/slider';
 import { Layers, ShieldCheck, Sprout } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,6 +27,10 @@ import {
 } from '@/constants/theme';
 import { usePilotState } from '@/hooks/use-pilot-state';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  fetchRemoteStressTest,
+  type RemoteStressTestResult,
+} from '@/lib/decision-api';
 import { baseScores, rankProbabilities } from '@/lib/scoring';
 import {
   buildSmsSummaryCard,
@@ -80,20 +84,63 @@ export default function CompareScreen() {
     strategyName: string;
     message: string;
   } | null>(null);
+  const [remoteResult, setRemoteResult] =
+    useState<RemoteStressTestResult | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void fetchRemoteStressTest({
+      strategies,
+      weights: [...weights],
+      stressId,
+      runs: 2000,
+      seed: 42,
+    }).then((result) => {
+      if (active) {
+        setRemoteResult(result);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [strategies, weights, stressId]);
 
   const baselineMatrix = strategies.map((s) => [...s.criterionScores]);
-  const baselineScores = baseScores(baselineMatrix, [...weights]);
-  const scoreMatrix = applyClimateStressToStrategies(strategies, stressId);
-  const computedScores = baseScores(scoreMatrix, [...weights]);
-  const stability = rankProbabilities(scoreMatrix, [...weights], {
+  const localBaselineScores = baseScores(baselineMatrix, [...weights]);
+  const localScoreMatrix = applyClimateStressToStrategies(strategies, stressId);
+  const localComputedScores = baseScores(localScoreMatrix, [...weights]);
+  const localStability = rankProbabilities(localScoreMatrix, [...weights], {
     runs: 2000,
     seed: 42,
   });
-  const minimax = computeMinimaxRegretRankings(
+  const localMinimax = computeMinimaxRegretRankings(
     strategies,
     [...weights],
     baseScores,
   );
+
+  const baselineScores =
+    remoteResult && remoteResult.baselineBaseScores.length === strategies.length
+      ? remoteResult.baselineBaseScores
+      : localBaselineScores;
+  const scoreMatrix =
+    remoteResult && remoteResult.stressedMatrix.length === strategies.length
+      ? remoteResult.stressedMatrix
+      : localScoreMatrix;
+  const computedScores =
+    remoteResult && remoteResult.baseScores.length === strategies.length
+      ? remoteResult.baseScores
+      : localComputedScores;
+  const stability =
+    remoteResult &&
+    remoteResult.probabilityFirst.length === strategies.length &&
+    remoteResult.meanRank.length === strategies.length
+      ? {
+          probabilityFirst: remoteResult.probabilityFirst,
+          meanRank: remoteResult.meanRank,
+        }
+      : localStability;
+  const minimax = remoteResult ? remoteResult.minimax : localMinimax;
 
   const activeScenario =
     CLIMATE_STRESS_SCENARIOS.find((item) => item.id === stressId) ??
@@ -231,7 +278,26 @@ export default function CompareScreen() {
         />
 
         <View style={styles.stressSection}>
-          <Label>CLIMATE STRESS &amp; ANALOG REPLAY</Label>
+          <View style={styles.stressHeaderRow}>
+            <Label>CLIMATE STRESS &amp; ANALOG REPLAY</Label>
+            <View
+              style={[
+                styles.apiEnginePill,
+                {
+                  backgroundColor: remoteResult
+                    ? theme.sage.surface
+                    : theme.surfaceSubtle,
+                },
+              ]}>
+              <ThemedText
+                type="code"
+                style={{
+                  color: remoteResult ? theme.sage.ink : theme.secondary,
+                }}>
+                {remoteResult ? 'LIVE API · VERCEL' : 'LOCAL ENGINE'}
+              </ThemedText>
+            </View>
+          </View>
           <SegmentedPillBar
             options={STRESS_PILL_OPTIONS}
             selectedId={stressId}
@@ -618,6 +684,17 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   stressSection: {
     gap: 8,
+  },
+  stressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  apiEnginePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: roofiRadii.pill,
   },
   scrollContent: {
     width: '100%',
