@@ -2667,6 +2667,9 @@ dialog::backdrop {
     break-inside: avoid;
     box-shadow: none;
     border-color: #bbb;
+  }
+}
+
 /* ─── Strategy Comparison & Evidence Passport ─────────────────────────── */
 .decision-section {
   background: var(--surface);

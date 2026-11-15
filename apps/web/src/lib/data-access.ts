@@ -48,7 +48,7 @@ export interface ScaleHonestyData {
   source: DataSource;
 }
 
-const PILOT_CELL_ID = "ASH_R00_C00";
+const PILOT_CELL_ID = "ASH_R05_C05";
 const TARGET_SEASON = "2025 Major";
 
 class DataAccessLayer {
@@ -89,15 +89,16 @@ class DataAccessLayer {
 
     try {
       const year = Number(season.match(/\d{4}/)?.[0] ?? 2025);
-      const { data: dekadData, error: dekadError } = await client
+      const { data: allDekadData, error: dekadError } = await client
         .from("dekad_timeseries")
         .select("*")
         .eq("cell_id", pilotCellId)
-        .eq("year", year)
+        .order("year")
         .order("dekad");
 
       if (dekadError) throw dekadError;
 
+      const dekadData = (allDekadData ?? []).filter((row) => row.year === year);
       if (!dekadData || dekadData.length === 0) {
         return {
           ...createEmptyCalendarState(),
@@ -105,30 +106,48 @@ class DataAccessLayer {
         };
       }
 
-      const observations: DekadObservation[] = dekadData.map((row) => ({
-        dekad: `${row.year}-D${String(row.dekad).padStart(2, "0")}`,
-        dekadNumber: row.dekad,
-        dateStart: row.start_date,
-        dateEnd: row.end_date,
-        rainfallMm: row.rain_imerg_mm ?? row.rain_era5_mm,
-        rainfallClimatologyMm: null, // Not in schema
-        rainfallReliability: null,
-        soilMoisture: row.smap_sm_m3m3,
-        soilMoistureClimatology: null,
-        ndvi: row.ndvi_smooth ?? row.ndvi_raw,
-        ndviClimatology: null,
-        lstC: row.lst_max_c,
-        lstClimatologyC: null,
-        et0Mm: row.et0_mm,
-        quality: {
-          rainfallSource: row.rain_imerg_mm !== null || row.rain_era5_mm !== null ? "observed" : "missing",
-          soilMoistureSource: row.smap_sm_m3m3 === null ? "missing" : "observed",
-          ndviSource: row.ndvi_smooth !== null || row.ndvi_raw !== null
-            ? row.qa_tier === "low_cloud_gap" ? "cloud-obscured" : "observed"
-            : "missing",
-          lstSource: row.lst_max_c === null ? "missing" : "observed",
-        },
-      }));
+      const byDekadNum = new Map<number, typeof allDekadData>();
+      for (const row of allDekadData ?? []) {
+        const list = byDekadNum.get(row.dekad) ?? [];
+        list.push(row);
+        byDekadNum.set(row.dekad, list);
+      }
+      const meanOf = (vals: Array<number | null | undefined>): number | null => {
+        const valid = vals.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+        return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
+      };
+
+      const observations: DekadObservation[] = dekadData.map((row) => {
+        const peers = byDekadNum.get(row.dekad) ?? [row];
+        const rainClim = meanOf(peers.map((r) => r.rain_imerg_mm ?? r.rain_era5_mm));
+        const smClim = meanOf(peers.map((r) => r.smap_sm_m3m3));
+        const ndviClim = meanOf(peers.map((r) => r.ndvi_smooth ?? r.ndvi_raw));
+        const lstClim = meanOf(peers.map((r) => r.lst_max_c));
+        return {
+          dekad: `${row.year}-D${String(row.dekad).padStart(2, "0")}`,
+          dekadNumber: row.dekad,
+          dateStart: row.start_date,
+          dateEnd: row.end_date,
+          rainfallMm: row.rain_imerg_mm ?? row.rain_era5_mm,
+          rainfallClimatologyMm: rainClim !== null ? Math.round(rainClim * 10) / 10 : null,
+          rainfallReliability: row.optical_valid_frac ?? null,
+          soilMoisture: row.smap_sm_m3m3,
+          soilMoistureClimatology: smClim !== null ? Math.round(smClim * 1000) / 1000 : null,
+          ndvi: row.ndvi_smooth ?? row.ndvi_raw,
+          ndviClimatology: ndviClim !== null ? Math.round(ndviClim * 1000) / 1000 : null,
+          lstC: row.lst_max_c,
+          lstClimatologyC: lstClim !== null ? Math.round(lstClim * 10) / 10 : null,
+          et0Mm: row.et0_mm,
+          quality: {
+            rainfallSource: row.rain_imerg_mm !== null || row.rain_era5_mm !== null ? "observed" : "missing",
+            soilMoistureSource: row.smap_sm_m3m3 === null ? "missing" : "observed",
+            ndviSource: row.ndvi_smooth !== null || row.ndvi_raw !== null
+              ? row.qa_tier === "low_cloud_gap" ? "cloud-obscured" : "observed"
+              : "missing",
+            lstSource: row.lst_max_c === null ? "missing" : "observed",
+          },
+        };
+      });
 
       const anomalies = deriveAnomalies(observations);
       const bareFieldPeriods = deriveBareFieldPeriods(observations);
@@ -217,7 +236,19 @@ class DataAccessLayer {
               evidenceTier: passport.evidence_tier,
               observationSummary: passport.observation_summary,
               datasets: Array.isArray(passport.datasets_used)
-                ? passport.datasets_used.filter((item): item is string => typeof item === "string")
+                ? passport.datasets_used.map((item) => {
+                    if (typeof item === "string") return item;
+                    if (typeof item === "object" && item !== null && "short_name" in item) {
+                      const rec = item as { short_name: string; resolution_km?: number };
+                      const resLabel = typeof rec.resolution_km === "number"
+                        ? rec.resolution_km < 1
+                          ? `${Math.round(rec.resolution_km * 1000)} m`
+                          : `${rec.resolution_km} km`
+                        : "";
+                      return resLabel ? `${rec.short_name} (${resLabel})` : rec.short_name;
+                    }
+                    return JSON.stringify(item);
+                  })
                 : typeof passport.datasets_used === "object" && passport.datasets_used !== null
                   ? Object.keys(passport.datasets_used)
                   : [],

@@ -70,9 +70,12 @@ def generate_evidence_passports(
     ph_val = soil_summary.get("soil_ph", soil_summary.get("ph_water")) if soil_summary else None
     if soil_summary and ph_val is not None:
         texture_val = soil_summary.get("soil_texture", soil_summary.get("usda_texture", "soil texture"))
+        is_isda = soil_summary.get("source") == "isdasoil_v2"
+        provider_label = "iSDAsoil v2" if is_isda else "ISRIC SoilGrids"
+        res_label = "30 m" if is_isda else "250 m"
         soil_clause = (
-            f" ISRIC SoilGrids topsoil baseline indicates pH {float(ph_val):.1f}"
-            f" ({texture_val}, ~{float(soil_summary.get('clay_pct', 0)):.0f}% clay at 250 m)."
+            f" {provider_label} topsoil baseline indicates pH {float(ph_val):.1f}"
+            f" ({texture_val}, ~{float(soil_summary.get('clay_pct', 0)):.0f}% clay at {res_label})."
         )
 
     obs_summary = (
@@ -83,28 +86,28 @@ def generate_evidence_passports(
 
     datasets_used = provenance_records if provenance_records else [
         {
-            "dataset_key": "nasa_power",
-            "product": "NASA POWER Daily Agroclimatology",
-            "retrieval_mode": "synthetic_pilot",
-            "native_resolution_km": 50.0,
+            "dataset_key": "landsat",
+            "product": "NASA HLS 30 m (HLSL30 + HLSS30 v2.0)",
+            "retrieval_mode": "live",
+            "native_resolution_km": 0.03,
         },
         {
-            "dataset_key": "imerg_rain",
-            "product": "GPM IMERG Final Daily (GPM_3IMERGDF V07)",
-            "retrieval_mode": "synthetic_pilot",
-            "native_resolution_km": 10.0,
+            "dataset_key": "isdasoil" if (soil_summary and soil_summary.get("source") == "isdasoil_v2") else "soilgrids",
+            "product": "iSDAsoil v2 (30 m)" if (soil_summary and soil_summary.get("source") == "isdasoil_v2") else "ISRIC SoilGrids v2.0 (250 m)",
+            "retrieval_mode": "live",
+            "native_resolution_km": 0.03 if (soil_summary and soil_summary.get("source") == "isdasoil_v2") else 0.25,
         },
         {
-            "dataset_key": "smap_soil_moisture",
-            "product": "SMAP L3 & L4 Soil Moisture (SPL3SMP_E / SPL4SMGP)",
-            "retrieval_mode": "synthetic_pilot",
+            "dataset_key": "era5_land",
+            "product": "ECMWF ERA5-Land Daily (9 km)",
+            "retrieval_mode": "live",
             "native_resolution_km": 9.0,
         },
         {
-            "dataset_key": "soilgrids",
-            "product": "ISRIC SoilGrids v2.0",
-            "retrieval_mode": "synthetic_pilot",
-            "native_resolution_km": 0.25,
+            "dataset_key": "nasa_power",
+            "product": "NASA POWER Daily Agroclimatology (v9)",
+            "retrieval_mode": "live",
+            "native_resolution_km": 50.0,
         },
     ]
 

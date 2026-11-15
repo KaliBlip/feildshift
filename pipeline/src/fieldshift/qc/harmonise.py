@@ -102,12 +102,12 @@ def build_dekad_cube(
         smap_sm = by_dekad["smap_sm_m3m3"].mean().reindex(dekad_index)
         ndvi_raw_clear = by_dekad["ndvi_clear"].mean().reindex(dekad_index)
         valid_counts = by_dekad["ndvi_clear"].count().reindex(dekad_index, fill_value=0)
-        total_counts = by_dekad["ndvi_raw"].size().reindex(dekad_index, fill_value=0)
+        observed_counts = by_dekad["ndvi_raw"].count().reindex(dekad_index, fill_value=0)
         lst_max = by_dekad["lst_max_c"].max().reindex(dekad_index)
         et0 = by_dekad["et0_mm"].sum().reindex(dekad_index, fill_value=0.0)
 
         with np.errstate(divide="ignore", invalid="ignore"):
-            valid_frac = np.where(total_counts > 0, valid_counts / total_counts, 0.0)
+            valid_frac = np.where(observed_counts > 0, valid_counts / observed_counts, 0.0)
         valid_frac = np.clip(np.round(valid_frac, 4), 0.0, 1.0)
 
         sm_vals = smap_sm.to_numpy(dtype=float)

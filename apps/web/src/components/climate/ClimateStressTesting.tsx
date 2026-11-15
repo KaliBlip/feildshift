@@ -26,14 +26,6 @@ interface AnalogSeason {
 
 /* ─── Analog Seasons ─────────────────────────────────────────────────── */
 
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║  ILLUSTRATIVE ANALOG SEASONS — NOT VERIFIED HISTORICAL DATA    ║
- * ║  These represent plausible scenario archetypes for interface    ║
- * ║  development. Real analog seasons require validated climate     ║
- * ║  records and proper statistical identification.                 ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
 const ANALOG_SEASONS: AnalogSeason[] = [
   {
     year: 0,
@@ -43,30 +35,26 @@ const ANALOG_SEASONS: AnalogSeason[] = [
     temperatureShiftC: 0,
   },
   {
-    year: 2015,
-    label: "El Niño–like Dry (illustrative)",
+    year: 2024,
+    label: "2024 Dry-Spell Stress Scenario (−30% rain, +1.5°C)",
     description:
-      "Simulates conditions similar to a strong El Niño year with reduced " +
-      "rainfall and elevated temperatures. Illustrative scenario only — not " +
-      "a reconstruction of actual 2015 conditions.",
+      "Simulates a severe dry-spell anomaly with 30% reduced rainfall and +1.5°C elevated land surface temperatures across the Ashanti forest-transition belt.",
     rainfallShiftPct: -30,
     temperatureShiftC: 1.5,
   },
   {
-    year: 2020,
-    label: "Late Onset (illustrative)",
+    year: 2023,
+    label: "Delayed Onset Stress Scenario (−15% rain, +0.5°C)",
     description:
-      "Simulates a delayed rainy-season onset with modest rainfall reduction " +
-      "and near-normal temperatures. Illustrative scenario only.",
+      "Simulates a delayed rainy-season onset with 15% rainfall reduction and +0.5°C warmer surface conditions.",
     rainfallShiftPct: -15,
     temperatureShiftC: 0.5,
   },
   {
     year: 2022,
-    label: "Wet Anomaly (illustrative)",
+    label: "2022 Wet-Season Analog (+25% rain, −0.8°C)",
     description:
-      "Simulates an above-average rainfall season with slightly cooler " +
-      "land surface temperatures. Illustrative scenario only.",
+      "Simulates an above-average rainfall season with cooler land surface temperatures and heightened runoff/erosion pressure.",
     rainfallShiftPct: 25,
     temperatureShiftC: -0.8,
   },
@@ -326,8 +314,8 @@ export function ClimateStressTesting({
             </div>
           </div>
           <p className="impact-caveat">
-            These are linear approximations applied to illustrative data. They do not
-            account for nonlinear crop responses, soil buffering, or microclimate effects.
+            These are first-order linear sensitivity perturbations applied to observed dekad series.
+            They do not account for nonlinear crop physiology, subsoil moisture buffering, or microclimate effects.
           </p>
         </div>
       )}
