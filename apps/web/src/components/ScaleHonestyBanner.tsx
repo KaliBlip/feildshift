@@ -4,6 +4,7 @@ import { useId } from "react";
 import { useTranslations } from "next-intl";
 import { Layers, Ruler } from "lucide-react";
 import { evaluateScaleHonesty } from "@/constants/ashanti-pilot";
+import { ScaleHonestyDiagram } from "@/components/scale-honesty/ScaleHonestyDiagram";
 
 interface ScaleHonestyBannerProps {
   farmAreaHa: number;
@@ -60,6 +61,10 @@ export function ScaleHonestyBanner({
           })}
         </span>
       </p>
+
+      <div className="mb-4">
+        <ScaleHonestyDiagram farmAreaHa={farmAreaHa} />
+      </div>
 
       <div className="sf-scale-grid">
         {entries.map((item) => {
