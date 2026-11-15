@@ -54,11 +54,16 @@ export default function LoginPage() {
         className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm"
       >
         <div className="space-y-1.5">
-          <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600">
+          <label
+            htmlFor="login-phone"
+            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600"
+          >
             <Phone className="h-3.5 w-3.5" />
             Phone Number
           </label>
           <input
+            id="login-phone"
+            name="phone"
             type="tel"
             value={phone}
             onChange={(e) => {
@@ -71,11 +76,16 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600">
+          <label
+            htmlFor="login-pin"
+            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-600"
+          >
             <Lock className="h-3.5 w-3.5" />
             4-Digit PIN
           </label>
           <input
+            id="login-pin"
+            name="pin"
             type="password"
             inputMode="numeric"
             maxLength={4}

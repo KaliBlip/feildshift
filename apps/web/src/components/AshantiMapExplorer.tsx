@@ -135,6 +135,7 @@ export function AshantiMapExplorer({
     }
 
     try {
+      maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
       const map = new maplibregl.Map({
         container,
         center: [-1.425, 6.875],
