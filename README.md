@@ -6,6 +6,14 @@
 **Initial focus region: Ashanti Region, Ghana**
 **Live Web & API Deployment: [https://fieldshift.vercel.app](https://fieldshift.vercel.app)**
 
+### Challenge Demo Credentials (Mobile & Web `/login`)
+
+| Role | Phone Number | 4-Digit PIN | Capabilities |
+| :--- | :--- | :--- | :--- |
+| **Farmer** (`farmer`) | `0512345601` | `1111` | Explore Ashanti strategies, stress tests, offline district packs, camera plot scan, log decisions & unverified outcomes |
+| **Extension Officer** (`extension_officer`) | `0512345602` | `2222` | All farmer views + Officer Review grading (`officer_reviewed` / `confounded_excluded`) for M8 calibration |
+| **Agronomist** (`agronomist`) | `0512345603` | `3333` | Senior validation (`expert_validated`) + M8 calibration & CSIR-CRI local review oversight |
+
 ---
 
 ## In one paragraph

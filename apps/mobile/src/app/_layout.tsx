@@ -7,9 +7,39 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sileo-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { PilotStateProvider } from '@/hooks/use-pilot-state';
+import LoginScreen from '@/app/login';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function AuthenticatedShell() {
+  const { session, isHydrating } = useAuth();
+
+  if (isHydrating) {
+    return null;
+  }
+
+  if (!session) {
+    return <LoginScreen />;
+  }
+
+  return (
+    <>
+      <AnimatedSplashOverlay />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="scale-honesty"
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+      </Stack>
+      <Toaster position="top-center" theme="system" />
+    </>
+  );
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -37,19 +67,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <PilotStateProvider>
-          <AnimatedSplashOverlay />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="scale-honesty"
-              options={{
-                animation: 'slide_from_right',
-              }}
-            />
-          </Stack>
-          <Toaster position="top-center" theme="system" />
-        </PilotStateProvider>
+        <AuthProvider>
+          <PilotStateProvider>
+            <AuthenticatedShell />
+          </PilotStateProvider>
+        </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

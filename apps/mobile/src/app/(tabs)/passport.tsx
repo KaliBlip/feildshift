@@ -1,4 +1,12 @@
-import { AlertTriangle, BadgeCheck, Radar } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  AlertTriangle,
+  BadgeCheck,
+  Camera,
+  ImagePlus,
+  Radar,
+} from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,9 +31,14 @@ import {
   roofiRadii,
   roofiSpacing,
 } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
 import { usePilotState } from '@/hooks/use-pilot-state';
 import { useTheme } from '@/hooks/use-theme';
 import { toast } from '@/lib/toast';
+import {
+  classifyPlotImageUri,
+  type PlotVisionPrediction,
+} from '@/lib/vision-classifier';
 
 type TierFilter = 'all' | 'data' | 'science' | 'hypothesis';
 
@@ -84,6 +97,7 @@ const YIELD_SIGNAL_OPTIONS = [
 
 export default function PassportScreen() {
   const theme = useTheme();
+  const { session, signOut } = useAuth();
   const {
     selectedCell,
     passports,
@@ -105,6 +119,51 @@ export default function PassportScreen() {
     'Strong' | 'Average' | 'Stressed'
   >('Average');
   const [outcomeNotes, setOutcomeNotes] = useState('');
+  const [scanUri, setScanUri] = useState<string | null>(null);
+  const [scanPrediction, setScanPrediction] =
+    useState<PlotVisionPrediction | null>(null);
+  const [isScanningPlot, setIsScanningPlot] = useState(false);
+
+  const handleScanPlot = async (source: 'camera' | 'library') => {
+    setIsScanningPlot(true);
+    try {
+      if (source === 'camera') {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          toast.warning(
+            'Camera permission needed',
+            'Allow camera access to scan plot cover offline.',
+          );
+          return;
+        }
+      }
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              quality: 0.5,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              quality: 0.5,
+            });
+
+      if (result.canceled || !result.assets[0]?.uri) {
+        return;
+      }
+
+      const uri = result.assets[0].uri;
+      setScanUri(uri);
+      const prediction = await classifyPlotImageUri(uri);
+      if (prediction) {
+        setScanPrediction(prediction);
+        setSoilCover(prediction.soilCover);
+        setWaterStress(prediction.waterStressHint);
+      }
+    } finally {
+      setIsScanningPlot(false);
+    }
+  };
 
   const handleSubmitOutcome = async () => {
     const trimmed = outcomeNotes.trim();
@@ -120,6 +179,8 @@ export default function PassportScreen() {
       pestOrDiseaseNotes: null,
     });
     setOutcomeNotes('');
+    setScanUri(null);
+    setScanPrediction(null);
     if (res.status === 'submitted') {
       toast.success(
         'Field observation submitted',
@@ -149,13 +210,20 @@ export default function PassportScreen() {
         ? 'Offline Cache'
         : 'Ashanti Bundle';
 
+  const roleLabel =
+    session?.role === 'extension_officer'
+      ? 'Officer'
+      : session?.role === 'agronomist'
+        ? 'Agronomist'
+        : 'Farmer';
+
   return (
     <SafeAreaView
       edges={['top']}
       style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <TopBarHeader
         title="Evidence Passports"
-        subtitle={`${selectedCell.cellId} · ${sourceLabel}`}
+        subtitle={`${selectedCell.cellId} · ${roleLabel} · ${sourceLabel}`}
         rightActions={[
           {
             id: 'reset-tier',
@@ -166,6 +234,16 @@ export default function PassportScreen() {
             },
             onPress: () => setTierFilter('all'),
             accessibilityLabel: 'Show all evidence tiers',
+          },
+          {
+            id: 'sign-out',
+            icon: {
+              ios: 'rectangle.portrait.and.arrow.right',
+              android: 'logout',
+              web: 'logout',
+            },
+            onPress: () => void signOut(),
+            accessibilityLabel: 'Sign out and switch role',
           },
         ]}
       />
@@ -339,6 +417,70 @@ export default function PassportScreen() {
               <Label>
                 SEASON &amp; GROUND COVER OBSERVED ({selectedCell.cellId})
               </Label>
+
+              <View style={styles.visionScanRow}>
+                <Pressable
+                  onPress={() => void handleScanPlot('camera')}
+                  disabled={isScanningPlot}
+                  style={({ pressed }) => [
+                    styles.visionScanBtn,
+                    {
+                      backgroundColor: theme.personal.surface,
+                      borderColor: theme.border,
+                      opacity: pressed || isScanningPlot ? 0.72 : 1,
+                    },
+                  ]}>
+                  <Camera size={16} color={theme.personal.ink} />
+                  <ThemedText
+                    type="smallBold"
+                    style={{ color: theme.personal.ink }}>
+                    {isScanningPlot ? 'Scanning…' : 'Scan Plot (Camera)'}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleScanPlot('library')}
+                  disabled={isScanningPlot}
+                  style={({ pressed }) => [
+                    styles.visionScanBtn,
+                    {
+                      backgroundColor: theme.surfaceSubtle,
+                      borderColor: theme.border,
+                      opacity: pressed || isScanningPlot ? 0.72 : 1,
+                    },
+                  ]}>
+                  <ImagePlus size={16} color={theme.foreground} />
+                  <ThemedText type="smallBold">Photo</ThemedText>
+                </Pressable>
+              </View>
+
+              {scanUri && scanPrediction && (
+                <View
+                  style={[
+                    styles.visionResultCard,
+                    {
+                      backgroundColor: theme.surfaceSubtle,
+                      borderColor: theme.border,
+                    },
+                  ]}>
+                  <Image
+                    source={{ uri: scanUri }}
+                    style={styles.visionThumb}
+                    contentFit="cover"
+                  />
+                  <View style={styles.visionResultText}>
+                    <ThemedText type="smallBold">
+                      On-device scan: {scanPrediction.soilCover} cover (
+                      {Math.round(scanPrediction.confidence * 100)}% conf ·{' '}
+                      {scanPrediction.inferenceMs}ms)
+                    </ThemedText>
+                    <ThemedText type="code" style={{ color: theme.secondary }}>
+                      Canopy {scanPrediction.canopyPct}% · Mulch{' '}
+                      {scanPrediction.mulchPct}% · Bare {scanPrediction.barePct}%
+                    </ThemedText>
+                  </View>
+                </View>
+              )}
+
               <SegmentedPillBar
                 options={SEASON_NAME_OPTIONS}
                 selectedId={seasonName}
@@ -458,6 +600,38 @@ const styles = StyleSheet.create({
   outcomeBody: {
     gap: 12,
     paddingTop: 6,
+  },
+  visionScanRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  visionScanBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: roofiRadii.md,
+    borderWidth: 1,
+  },
+  visionResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    borderRadius: roofiRadii.md,
+    borderWidth: 1,
+  },
+  visionThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: roofiRadii.sm,
+  },
+  visionResultText: {
+    flex: 1,
+    gap: 2,
   },
   outcomeInput: {
     minHeight: 74,
