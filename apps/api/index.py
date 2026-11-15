@@ -55,16 +55,19 @@ def _apply_stress_matrix(
     return out
 
 
+@app.get("/health")
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
 
 
+@app.get("/analogs")
 @app.get("/api/analogs")
 def analogs():
     return {"region": "ashanti_pilot", "presets": ASHANTI_ANALOG_PRESETS}
 
 
+@app.post("/score")
 @app.post("/api/score")
 def score(req: ScoreRequest):
     n_s, n_c = len(req.strategies), len(req.criteria)
@@ -83,6 +86,7 @@ def score(req: ScoreRequest):
     }
 
 
+@app.post("/stress-test")
 @app.post("/api/stress-test")
 def stress_test(req: StressTestRequest):
     n_s, n_c = len(req.strategies), len(req.criteria)
