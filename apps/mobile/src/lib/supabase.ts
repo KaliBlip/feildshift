@@ -272,6 +272,20 @@ export async function fetchLivePilotStrategies(
   }
 }
 
+/**
+ * Prefetch and cache all Ashanti district pilot cells in AsyncStorage so
+ * extension officers can switch cells seamlessly while offline in the field.
+ */
+export async function prefetchDistrictPack(cellIds: string[]): Promise<number> {
+  if (cellIds.length === 0) return 0;
+  const results = await Promise.allSettled(
+    cellIds.map((cellId) => fetchLivePilotStrategies(cellId)),
+  );
+  return results.filter(
+    (res) => res.status === 'fulfilled' && res.value !== null,
+  ).length;
+}
+
 export interface DecisionLogInput {
   cellId: string;
   sessionLabel?: string | null;

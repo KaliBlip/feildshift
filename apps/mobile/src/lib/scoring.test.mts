@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 import { baseScores, rankProbabilities } from './scoring.ts';
 import { buildSmsSummaryCard, estimateNitrogenOffsetSummary } from './sms-export.ts';
-import { computeMinimaxRegretRankings } from './stress.ts';
+import {
+  applyClimateStressToStrategies,
+  type ClimateStressId,
+  computeMinimaxRegretRankings,
+} from './stress.ts';
 
 interface ScoringVector {
   strategies: string[];
@@ -97,4 +101,59 @@ test('computeMinimaxRegretRankings identifies robust lowest-regret strategy', ()
   assert.ok(sms.includes('ASH_R05_C05'));
   assert.ok(sms.includes('Twi:'));
   assert.ok(sms.includes('urea'));
+});
+
+test('applyClimateStressToStrategies and Minimax Regret match shared stress vector', () => {
+  const stressVectorPath = path.resolve(
+    currentDir,
+    '../../../../shared/test-vectors/stress_test_basic.json',
+  );
+  const sv = JSON.parse(fs.readFileSync(stressVectorPath, 'utf-8')) as {
+    strategies: string[];
+    is_baseline: boolean[];
+    scores: number[][];
+    weights: number[];
+    expected_lowest_regret_strategy: string;
+    scenarios: Record<
+      ClimateStressId,
+      {
+        expected_stressed_scores: number[][];
+        expected_base_scores: number[];
+      }
+    >;
+  };
+
+  const specs = sv.strategies.map((name, idx) => ({
+    code: name,
+    name,
+    sequence: '',
+    isBaseline: sv.is_baseline[idx],
+    criterionScores: sv.scores[idx] as [number, number, number, number],
+    expectedBenefits: [],
+    informationGaps: [],
+    risksNeedingReview: [],
+  }));
+
+  for (const scenarioId of Object.keys(sv.scenarios) as ClimateStressId[]) {
+    const expected = sv.scenarios[scenarioId];
+    const stressed = applyClimateStressToStrategies(specs, scenarioId);
+    for (let i = 0; i < stressed.length; i++) {
+      for (let j = 0; j < 4; j++) {
+        assert.ok(
+          Math.abs(stressed[i][j] - expected.expected_stressed_scores[i][j]) < 2e-4,
+          `${scenarioId}[${i}][${j}]: expected ${expected.expected_stressed_scores[i][j]}, got ${stressed[i][j]}`,
+        );
+      }
+    }
+    const gotBase = baseScores(stressed, sv.weights);
+    for (let i = 0; i < gotBase.length; i++) {
+      assert.ok(
+        Math.abs(gotBase[i] - expected.expected_base_scores[i]) < 2e-4,
+        `${scenarioId} base[${i}]: expected ${expected.expected_base_scores[i]}, got ${gotBase[i]}`,
+      );
+    }
+  }
+
+  const mm = computeMinimaxRegretRankings(specs, sv.weights, baseScores);
+  assert.equal(mm.lowestRegretCode, sv.expected_lowest_regret_strategy);
 });
