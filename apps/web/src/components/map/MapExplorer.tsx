@@ -4,7 +4,12 @@ import { useRef, useState, useCallback } from "react";
 import MapGL, { Layer, Source } from "react-map-gl/maplibre";
 import type { MapLayerMouseEvent, MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import * as maplibregl from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
+
+if (typeof window !== "undefined") {
+  maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
+}
 import type {
   LayerControlProps,
   MapExplorerProps,
@@ -17,92 +22,45 @@ import type { MapLayerId } from "@/lib/types";
 
 const MAP_STYLE: StyleSpecification = {
   version: 8,
-  sources: {},
+  sources: {
+    "osm-tiles": {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
   layers: [
     {
-      id: "background",
-      type: "background",
-      paint: { "background-color": "#F7FAF7" },
+      id: "osm-basemap",
+      type: "raster",
+      source: "osm-tiles",
+      paint: {
+        "raster-opacity": 0.9,
+      },
     },
   ],
 };
 
-const LAYER_STYLES: Record<MapLayerId, { paint: Record<string, unknown>; layout?: Record<string, unknown> }> = {
-  ndvi: {
-    paint: {
-      "raster-opacity": 0.8,
-      "raster-color-ramp": [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        0.0, "#8B4513",
-        0.15, "#D2B48C",
-        0.3, "#F5DEB3",
-        0.45, "#90EE90",
-        0.6, "#228B22",
-        0.8, "#006400",
-        1.0, "#003300",
-      ],
-    },
-  },
-  "soil-moisture": {
-    paint: {
-      "raster-opacity": 0.8,
-      "raster-color-ramp": [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        0.05, "#8B0000",
-        0.10, "#CD853F",
-        0.20, "#DAA520",
-        0.30, "#4682B4",
-        0.40, "#4169E1",
-        0.50, "#00008B",
-      ],
-    },
-  },
-  rainfall: {
-    paint: {
-      "raster-opacity": 0.8,
-      "raster-color-ramp": [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        0, "#FFF5E6",
-        10, "#FED976",
-        25, "#FEB24C",
-        50, "#FD8D3C",
-        75, "#FC4E2A",
-        100, "#E31A1C",
-        150, "#800026",
-      ],
-    },
-  },
-  srtm: {
-    paint: {
-      "raster-opacity": 0.7,
-      "raster-color-ramp": [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        100, "#006837",
-        200, "#31A354",
-        300, "#78C679",
-        400, "#C2E699",
-        500, "#FFFFCC",
-        600, "#FED976",
-        700, "#FD8D3C",
-        800, "#E31A1C",
-      ],
-    },
-  },
+const LAYER_FILL_COLORS: Record<MapLayerId, string> = {
+  ndvi: "#1FB26B",
+  "soil-moisture": "#3670FF",
+  rainfall: "#2458DB",
+  srtm: "#F9D601",
 };
 
-const TILE_URLS: Record<MapLayerId, string> = {
-  ndvi: "https://tiles.example.com/ndvi/{z}/{x}/{y}.pbf",
-  "soil-moisture": "https://tiles.example.com/smap/{z}/{x}/{y}.pbf",
-  rainfall: "https://tiles.example.com/imerg/{z}/{x}/{y}.pbf",
-  srtm: "https://tiles.example.com/srtm/{z}/{x}/{y}.pbf",
+const ASHANTI_CELL_GRID_GEOJSON = {
+  type: "FeatureCollection" as const,
+  features: [
+    {
+      type: "Feature" as const,
+      properties: { cell_id: "ASH_R05_C05", value: 0.62 },
+      geometry: {
+        type: "Polygon" as const,
+        coordinates: [[[-1.46, 6.84], [-1.39, 6.84], [-1.39, 6.91], [-1.46, 6.91], [-1.46, 6.84]]],
+      },
+    },
+  ],
 };
 
 const ATTRIBUTIONS: Record<MapLayerId, string> = {
@@ -233,13 +191,15 @@ export function MapExplorer({
           if (!layerConfig) return null;
 
           return (
-            <Source key={layerId} type="raster" url={TILE_URLS[layerId]} tileSize={256}>
+            <Source key={layerId} id={`src-${layerId}`} type="geojson" data={ASHANTI_CELL_GRID_GEOJSON}>
               <Layer
                 id={layerId}
-                type="raster"
-                source={layerId}
-                paint={LAYER_STYLES[layerId].paint}
-                layout={LAYER_STYLES[layerId].layout}
+                type="fill"
+                paint={{
+                  "fill-color": LAYER_FILL_COLORS[layerId] ?? "#3670FF",
+                  "fill-opacity": 0.28,
+                  "fill-outline-color": "#171717",
+                }}
               />
             </Source>
           );

@@ -40,8 +40,16 @@ export function GlossaryTooltip({ term, position = "top", open, onClose, anchorR
         break;
     }
 
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
+    const clampedLeft = Math.max(
+      12,
+      Math.min(left, window.innerWidth - tooltipRect.width - 12),
+    );
+    const clampedTop = Math.max(
+      12,
+      Math.min(top, window.innerHeight - tooltipRect.height - 12),
+    );
+    tooltip.style.top = `${clampedTop}px`;
+    tooltip.style.left = `${clampedLeft}px`;
   }, [open, position, anchorRef]);
 
   if (!open) return null;

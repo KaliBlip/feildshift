@@ -81,7 +81,7 @@ export function AppNav() {
             title={pendingCount > 0 ? "Flush offline queue" : undefined}
           >
             {isOnline ? <Wifi size={14} aria-hidden="true" /> : <WifiOff size={14} aria-hidden="true" />}
-            <span>
+            <span className="hidden sm:inline">
               {pendingCount > 0
                 ? t("pendingQueue", { count: pendingCount })
                 : isOnline
@@ -93,7 +93,7 @@ export function AppNav() {
 
           <Link
             href="/login"
-            className="rounded-full bg-[#171717] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#3670FF]"
+            className="shrink-0 whitespace-nowrap rounded-full bg-[#171717] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#3670FF]"
           >
             PIN Sign In
           </Link>
