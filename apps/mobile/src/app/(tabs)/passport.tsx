@@ -1,6 +1,14 @@
-import { AlertTriangle, BadgeCheck, Radar } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  AlertTriangle,
+  BadgeCheck,
+  Camera,
+  ImagePlus,
+  Radar,
+} from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -9,19 +17,28 @@ import {
   ThreeZoneGaugeBar,
   TopBarHeader,
 } from '@/components/design-system';
-import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
+import { Button, Field, Heading, Label } from '@/components/ui';
 import { Collapsible } from '@/components/ui/collapsible';
-import { GLOSSARY_ITEMS, type EvidencePassportEntry } from '@/constants/pilot-data';
+import {
+  GLOSSARY_ITEMS,
+  type EvidencePassportEntry,
+} from '@/constants/pilot-data';
 import {
   BottomTabInset,
   CardShadow,
   MaxContentWidth,
-  Radii,
-  Spacing,
+  roofiRadii,
+  roofiSpacing,
 } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
 import { usePilotState } from '@/hooks/use-pilot-state';
 import { useTheme } from '@/hooks/use-theme';
+import { toast } from '@/lib/toast';
+import {
+  classifyPlotImageUri,
+  type PlotVisionPrediction,
+} from '@/lib/vision-classifier';
 
 type TierFilter = 'all' | 'data' | 'science' | 'hypothesis';
 
@@ -80,21 +97,73 @@ const YIELD_SIGNAL_OPTIONS = [
 
 export default function PassportScreen() {
   const theme = useTheme();
+  const { session, signOut } = useAuth();
   const {
     selectedCell,
     passports,
     dataSourceMode,
-    queuedLogsCount,
     logFieldOutcome,
   } = usePilotState();
   const [tierFilter, setTierFilter] = useState<TierFilter>('all');
   const [showOutcomeForm, setShowOutcomeForm] = useState(false);
-  const [seasonName, setSeasonName] = useState<'Major' | 'Minor' | 'Dry'>('Major');
-  const [soilCover, setSoilCover] = useState<'Intact' | 'Partial' | 'Bare'>('Intact');
-  const [waterStress, setWaterStress] = useState<'None' | 'Mild' | 'Severe'>('None');
-  const [yieldSignal, setYieldSignal] = useState<'Strong' | 'Average' | 'Stressed'>('Average');
+  const [seasonName, setSeasonName] = useState<'Major' | 'Minor' | 'Dry'>(
+    'Major',
+  );
+  const [soilCover, setSoilCover] = useState<'Intact' | 'Partial' | 'Bare'>(
+    'Intact',
+  );
+  const [waterStress, setWaterStress] = useState<'None' | 'Mild' | 'Severe'>(
+    'None',
+  );
+  const [yieldSignal, setYieldSignal] = useState<
+    'Strong' | 'Average' | 'Stressed'
+  >('Average');
   const [outcomeNotes, setOutcomeNotes] = useState('');
-  const [outcomeStatus, setOutcomeStatus] = useState<string | null>(null);
+  const [scanUri, setScanUri] = useState<string | null>(null);
+  const [scanPrediction, setScanPrediction] =
+    useState<PlotVisionPrediction | null>(null);
+  const [isScanningPlot, setIsScanningPlot] = useState(false);
+
+  const handleScanPlot = async (source: 'camera' | 'library') => {
+    setIsScanningPlot(true);
+    try {
+      if (source === 'camera') {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          toast.warning(
+            'Camera permission needed',
+            'Allow camera access to scan plot cover offline.',
+          );
+          return;
+        }
+      }
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              quality: 0.5,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              quality: 0.5,
+            });
+
+      if (result.canceled || !result.assets[0]?.uri) {
+        return;
+      }
+
+      const uri = result.assets[0].uri;
+      setScanUri(uri);
+      const prediction = await classifyPlotImageUri(uri);
+      if (prediction) {
+        setScanPrediction(prediction);
+        setSoilCover(prediction.soilCover);
+        setWaterStress(prediction.waterStressHint);
+      }
+    } finally {
+      setIsScanningPlot(false);
+    }
+  };
 
   const handleSubmitOutcome = async () => {
     const trimmed = outcomeNotes.trim();
@@ -110,11 +179,19 @@ export default function PassportScreen() {
       pestOrDiseaseNotes: null,
     });
     setOutcomeNotes('');
-    setOutcomeStatus(
-      res.status === 'submitted'
-        ? 'Submitted for officer verification (does not auto-shift model).'
-        : `Queued offline (${res.queuedCount} waiting) until connection returns.`,
-    );
+    setScanUri(null);
+    setScanPrediction(null);
+    if (res.status === 'submitted') {
+      toast.success(
+        'Field observation submitted',
+        'Queued for extension-officer verification (does not auto-shift model).',
+      );
+    } else {
+      toast.warning(
+        'Field observation saved offline',
+        `${res.queuedCount} report(s) waiting for connection.`,
+      );
+    }
   };
 
   const visiblePassports = passports.filter((ep) => {
@@ -131,7 +208,14 @@ export default function PassportScreen() {
       ? 'Live Supabase'
       : dataSourceMode === 'cached'
         ? 'Offline Cache'
-        : 'Ashanti Fixture';
+        : 'Ashanti Bundle';
+
+  const roleLabel =
+    session?.role === 'extension_officer'
+      ? 'Officer'
+      : session?.role === 'agronomist'
+        ? 'Agronomist'
+        : 'Farmer';
 
   return (
     <SafeAreaView
@@ -139,7 +223,7 @@ export default function PassportScreen() {
       style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <TopBarHeader
         title="Evidence Passports"
-        subtitle={`${selectedCell.cellId} · ${sourceLabel}`}
+        subtitle={`${selectedCell.cellId} · ${roleLabel} · ${sourceLabel}`}
         rightActions={[
           {
             id: 'reset-tier',
@@ -151,14 +235,22 @@ export default function PassportScreen() {
             onPress: () => setTierFilter('all'),
             accessibilityLabel: 'Show all evidence tiers',
           },
+          {
+            id: 'sign-out',
+            icon: {
+              ios: 'rectangle.portrait.and.arrow.right',
+              android: 'logout',
+              web: 'logout',
+            },
+            onPress: () => void signOut(),
+            accessibilityLabel: 'Sign out and switch role',
+          },
         ]}
       />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <SyncStatusPill />
-
         <SegmentedPillBar
           options={TIER_FILTER_OPTIONS}
           selectedId={tierFilter}
@@ -170,8 +262,16 @@ export default function PassportScreen() {
             passport.evidenceTier === 'unverified_hypothesis';
           const isDataDerived =
             passport.evidenceTier === 'data_derived_finding';
-          const pillBg = isHypothesis ? theme.amberSoft : theme.primarySoft;
-          const pillFg = isHypothesis ? theme.amber : theme.primaryText;
+          const pillBg = isHypothesis
+            ? theme.gold.surface
+            : isDataDerived
+              ? theme.personal.surface
+              : theme.sage.surface;
+          const pillFg = isHypothesis
+            ? theme.gold.ink
+            : isDataDerived
+              ? theme.personal.ink
+              : theme.sage.ink;
 
           return (
             <View
@@ -197,12 +297,12 @@ export default function PassportScreen() {
                     <BadgeCheck size={12} color={pillFg} />
                   )}
                   <ThemedText type="code" style={{ color: pillFg }}>
-                    {EVIDENCE_TIER_LABELS[passport.evidenceTier]}
+                    {EVIDENCE_TIER_LABELS[passport.evidenceTier].toUpperCase()}
                   </ThemedText>
                 </View>
               </View>
 
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="default" themeColor="secondary">
                 {passport.observationSummary}
               </ThemedText>
 
@@ -212,9 +312,9 @@ export default function PassportScreen() {
                     key={ds}
                     style={[
                       styles.datasetChip,
-                      { backgroundColor: theme.backgroundElement },
+                      { backgroundColor: theme.surfaceSubtle },
                     ]}>
-                    <ThemedText type="code" themeColor="textSecondary">
+                    <ThemedText type="code" themeColor="secondary">
                       {ds}
                     </ThemedText>
                   </View>
@@ -227,12 +327,14 @@ export default function PassportScreen() {
                 zoneLabels={['Hypothesis', 'Data-derived', 'Validated']}
               />
 
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+              <View
+                style={[styles.divider, { backgroundColor: theme.border }]}
+              />
 
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="secondary">
                 Coverage: {passport.spatialTemporalCoverage}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
+              <ThemedText type="small" themeColor="secondary">
                 Scale honesty: {passport.scaleHonestyNote}
               </ThemedText>
 
@@ -252,18 +354,24 @@ export default function PassportScreen() {
         })}
 
         <View style={styles.glossaryHeader}>
-          <ThemedText type="sectionTitle">Plain-Language Glossary</ThemedText>
-          <ThemedText type="small" themeColor="textMuted">
-            Tap to expand
-          </ThemedText>
+          <Heading title="Plain-Language Glossary" />
+          <View
+            style={[
+              styles.countBadge,
+              { backgroundColor: theme.surfaceSubtle },
+            ]}>
+            <ThemedText type="code" themeColor="secondary">
+              TAP TO EXPAND
+            </ThemedText>
+          </View>
         </View>
 
         <View style={styles.glossaryList}>
           {GLOSSARY_ITEMS.map((entry) => (
             <Collapsible key={entry.term} title={entry.term}>
               <View style={styles.glossaryBody}>
-                <ThemedText type="small">{entry.plainMeaning}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="default">{entry.plainMeaning}</ThemedText>
+                <ThemedText type="small" themeColor="secondary">
                   Why it matters: {entry.whyItMatters}
                 </ThemedText>
               </View>
@@ -281,27 +389,98 @@ export default function PassportScreen() {
             },
           ]}>
           <Pressable
+            accessibilityRole="button"
             onPress={() => setShowOutcomeForm((v) => !v)}
             style={styles.cardHeader}>
             <View style={styles.flexOne}>
+              <Label>EXTENSION OFFICER VERIFICATION</Label>
               <ThemedText type="sectionTitle">
                 Submit Field Outcome Check
               </ThemedText>
-              <ThemedText type="small" themeColor="textMuted">
+              <ThemedText type="small" themeColor="mutedText">
                 Saved for extension-officer review before model recalibration
-                {queuedLogsCount > 0 ? ` · ${queuedLogsCount} queued` : ''}
               </ThemedText>
             </View>
-            <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
-              {showOutcomeForm ? 'Hide' : 'Report'}
-            </ThemedText>
+            <View
+              style={[
+                styles.reportChip,
+                { backgroundColor: theme.personal.surface },
+              ]}>
+              <ThemedText type="code" style={{ color: theme.personal.ink }}>
+                {showOutcomeForm ? 'HIDE' : 'REPORT'}
+              </ThemedText>
+            </View>
           </Pressable>
 
           {showOutcomeForm && (
             <View style={styles.outcomeBody}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                Season &amp; ground cover observed ({selectedCell.cellId})
-              </ThemedText>
+              <Label>
+                SEASON &amp; GROUND COVER OBSERVED ({selectedCell.cellId})
+              </Label>
+
+              <View style={styles.visionScanRow}>
+                <Pressable
+                  onPress={() => void handleScanPlot('camera')}
+                  disabled={isScanningPlot}
+                  style={({ pressed }) => [
+                    styles.visionScanBtn,
+                    {
+                      backgroundColor: theme.personal.surface,
+                      borderColor: theme.border,
+                      opacity: pressed || isScanningPlot ? 0.72 : 1,
+                    },
+                  ]}>
+                  <Camera size={16} color={theme.personal.ink} />
+                  <ThemedText
+                    type="smallBold"
+                    style={{ color: theme.personal.ink }}>
+                    {isScanningPlot ? 'Scanning…' : 'Scan Plot (Camera)'}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleScanPlot('library')}
+                  disabled={isScanningPlot}
+                  style={({ pressed }) => [
+                    styles.visionScanBtn,
+                    {
+                      backgroundColor: theme.surfaceSubtle,
+                      borderColor: theme.border,
+                      opacity: pressed || isScanningPlot ? 0.72 : 1,
+                    },
+                  ]}>
+                  <ImagePlus size={16} color={theme.foreground} />
+                  <ThemedText type="smallBold">Photo</ThemedText>
+                </Pressable>
+              </View>
+
+              {scanUri && scanPrediction && (
+                <View
+                  style={[
+                    styles.visionResultCard,
+                    {
+                      backgroundColor: theme.surfaceSubtle,
+                      borderColor: theme.border,
+                    },
+                  ]}>
+                  <Image
+                    source={{ uri: scanUri }}
+                    style={styles.visionThumb}
+                    contentFit="cover"
+                  />
+                  <View style={styles.visionResultText}>
+                    <ThemedText type="smallBold">
+                      On-device scan: {scanPrediction.soilCover} cover (
+                      {Math.round(scanPrediction.confidence * 100)}% conf ·{' '}
+                      {scanPrediction.inferenceMs}ms)
+                    </ThemedText>
+                    <ThemedText type="code" style={{ color: theme.secondary }}>
+                      Canopy {scanPrediction.canopyPct}% · Mulch{' '}
+                      {scanPrediction.mulchPct}% · Bare {scanPrediction.barePct}%
+                    </ThemedText>
+                  </View>
+                </View>
+              )}
+
               <SegmentedPillBar
                 options={SEASON_NAME_OPTIONS}
                 selectedId={seasonName}
@@ -330,39 +509,19 @@ export default function PassportScreen() {
                   setYieldSignal(id as 'Strong' | 'Average' | 'Stressed')
                 }
               />
-              <TextInput
+              <Field
+                label="Field Observation Notes"
                 value={outcomeNotes}
                 onChangeText={setOutcomeNotes}
                 placeholder="Optional notes (e.g., Cowpea relay kept soil moist)"
-                placeholderTextColor={theme.textMuted}
                 multiline
-                style={[
-                  styles.outcomeInput,
-                  {
-                    color: theme.text,
-                    borderColor: theme.border,
-                    backgroundColor: theme.backgroundElement,
-                  },
-                ]}
+                style={styles.outcomeInput}
               />
-              <Pressable
+              <Button
+                title="Submit Field Observation"
                 onPress={() => void handleSubmitOutcome()}
-                style={({ pressed }) => [
-                  styles.submitOutcomeBtn,
-                  { backgroundColor: theme.primarySoft },
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
-                  Submit Field Observation
-                </ThemedText>
-              </Pressable>
+              />
             </View>
-          )}
-
-          {outcomeStatus !== null && (
-            <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
-              {outcomeStatus}
-            </ThemedText>
           )}
         </View>
       </ScrollView>
@@ -376,31 +535,31 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: roofiSpacing[5],
+    paddingTop: roofiSpacing[2],
+    paddingBottom: BottomTabInset + roofiSpacing[6],
+    gap: roofiSpacing[4],
   },
   passportCard: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
-    gap: 10,
+    padding: roofiSpacing[4],
+    gap: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: Spacing.two,
+    gap: roofiSpacing[2],
   },
-  flexOne: { flex: 1 },
+  flexOne: { flex: 1, gap: 2 },
   tierPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: Radii.sm,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.pill,
   },
   datasetChipsRow: {
     flexDirection: 'row',
@@ -408,9 +567,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   datasetChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.pill,
   },
   divider: {
     height: 1,
@@ -422,29 +581,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
+  countBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: roofiRadii.pill,
+  },
   glossaryList: {
     gap: 10,
   },
   glossaryBody: {
     gap: 6,
   },
+  reportChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.pill,
+  },
   outcomeBody: {
+    gap: 12,
+    paddingTop: 6,
+  },
+  visionScanRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  visionScanBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: roofiRadii.md,
+    borderWidth: 1,
+  },
+  visionResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
-    paddingTop: 4,
+    padding: 10,
+    borderRadius: roofiRadii.md,
+    borderWidth: 1,
+  },
+  visionThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: roofiRadii.sm,
+  },
+  visionResultText: {
+    flex: 1,
+    gap: 2,
   },
   outcomeInput: {
     minHeight: 74,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    padding: 10,
     textAlignVertical: 'top',
-    fontSize: 14,
   },
-  submitOutcomeBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: Radii.md,
-    alignItems: 'center',
-  },
-  pressed: { opacity: 0.75 },
 });

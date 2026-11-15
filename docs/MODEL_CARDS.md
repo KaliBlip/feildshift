@@ -34,3 +34,8 @@ Structured documentation for the Ashanti Pilot Earth Observation & Decision Inte
 - **Method:** Closed-form Normal-conjugate posterior updating (`calibrate_strategy_scores_with_feedback`) that shifts strategy criterion means and tightens posterior uncertainty sigmas **strictly** from outcome reports graded `officer_reviewed` (`σ_obs = 0.12`) or `expert_validated` (`σ_obs = 0.08`) with `eligible_for_model_update = True`.
 - **Governance:** Mirrors Supabase RLS on `outcome_reports`; unverified `farmer_reported` logs (`eligible_for_model_update = False`) are persisted for officer review and strictly excluded from weight/prior updates (`ignored_unverified_reports`).
 - **Known Limitations:** Relies on structured officer grading of water stress, soil cover, erosion, and yield outcomes; does not adjust regional hydrological climatologies directly.
+
+## M9 (Edge) — On-Device Plot Cover & Stress Vision Classifier (`apps/mobile/src/lib/vision-classifier.ts`)
+- **Method:** 100% offline Skia offscreen `64×64` RGBA readback (`classifyPlotImageUri`) + spectral-index classification (`classifyRgbaPatch`) using Excess Green (`ExG = 2g - r - b`), Normalized Green-Red Difference (`NGRDI`), and brightness/redness residue separation behind a pluggable `VisionBackendId` (`skia-agronomic-v1`, ready for quantized ONNX/TFLite).
+- **Outputs:** Auto-populates `soilCover` (`Intact` / `Partial` / `Bare`), `waterStressHint` (`None` / `Mild` / `Severe`), `canopyPct`, `mulchPct`, `barePct`, and `confidence` on mobile Field Outcome Reports.
+- **Known Limitations:** Spectral color indices can be affected by harsh noon shadows or wet dark soils; farmers and extension officers can always override the suggested pills before submitting.

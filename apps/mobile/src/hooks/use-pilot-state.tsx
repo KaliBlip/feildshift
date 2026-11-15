@@ -25,6 +25,7 @@ import {
   getQueuedSubmissionCount,
   hydrateCachedPilotPayloadAsync,
   hydrateQueueFromAsyncStorage,
+  prefetchDistrictPack,
   readCachedPilotPayload,
   submitDecisionLog,
   submitOutcomeReport,
@@ -135,6 +136,10 @@ export function PilotStateProvider({ children }: { children: ReactNode }) {
       ]);
       await applyHydratedOrCached(selectedCellId, live);
       setQueuedLogsCount(flushResult.remaining);
+      const otherCellIds = ASHANTI_PILOT_CELLS.map((c) => c.cellId).filter(
+        (id) => id !== selectedCellId,
+      );
+      void prefetchDistrictPack(otherCellIds);
     } finally {
       setIsSyncing(false);
     }

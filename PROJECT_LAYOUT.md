@@ -24,8 +24,9 @@ field-shift/
 │   └── tests/
 ├── knowledge/                Crop knowledge table (CSV). Every row cited and expert-reviewed.
 ├── supabase/migrations/      Database schema, PostGIS, row-level security policies
-├── shared/test-vectors/      JSON fixtures that both Python and TypeScript scoring must reproduce
-└── docs/                     Build phases, work split, and architecture docs
+├── shared/test-vectors/      JSON fixtures (`scoring_basic.json`, `stress_test_basic.json`) for Python/TS parity
+├── .github/workflows/ci.yml  CI pipeline running pipeline, API, web, and mobile checks
+└── docs/                     Build phases, work split, and model cards
 ```
 
 ## Team Ownership & Work Split
@@ -61,7 +62,9 @@ Why the split matters: Vercel's current docs give Python functions a 500 MB unco
 
 ## Keeping TypeScript and Python scoring in agreement
 
-`shared/test-vectors/scoring_basic.json` holds a deterministic example. Both implementations must reproduce `expected_base_scores` to 1e-9. Monte Carlo output is compared only within a statistical tolerance, because random generators differ between languages. The numbers in the fixture are illustrative, not real agronomic scores.
+- `shared/test-vectors/scoring_basic.json` holds a deterministic weighted-sum check; Python (`pipeline/` & `apps/api`) and TypeScript (`apps/web` & `apps/mobile`) must reproduce `expected_base_scores` to `1e-9`.
+- `shared/test-vectors/stress_test_basic.json` holds climate stress-test perturbation and Minimax Regret parity checks (`2e-4` tolerance for half-to-even vs. half-up rounding).
+- Monte Carlo rank probabilities are compared within statistical tolerance, because random generators differ between languages. All four suites run automatically in `.github/workflows/ci.yml`.
 
 ## Developer Setup (macOS & Linux)
 

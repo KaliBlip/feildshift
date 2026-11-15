@@ -4,9 +4,15 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { authenticateWithPhonePin } from './auth.ts';
 import { baseScores, rankProbabilities } from './scoring.ts';
 import { buildSmsSummaryCard, estimateNitrogenOffsetSummary } from './sms-export.ts';
-import { computeMinimaxRegretRankings } from './stress.ts';
+import {
+  applyClimateStressToStrategies,
+  type ClimateStressId,
+  computeMinimaxRegretRankings,
+} from './stress.ts';
+import { classifyRgbaPatch } from './vision-classifier.ts';
 
 interface ScoringVector {
   strategies: string[];
@@ -97,4 +103,111 @@ test('computeMinimaxRegretRankings identifies robust lowest-regret strategy', ()
   assert.ok(sms.includes('ASH_R05_C05'));
   assert.ok(sms.includes('Twi:'));
   assert.ok(sms.includes('urea'));
+});
+
+test('applyClimateStressToStrategies and Minimax Regret match shared stress vector', () => {
+  const stressVectorPath = path.resolve(
+    currentDir,
+    '../../../../shared/test-vectors/stress_test_basic.json',
+  );
+  const sv = JSON.parse(fs.readFileSync(stressVectorPath, 'utf-8')) as {
+    strategies: string[];
+    is_baseline: boolean[];
+    scores: number[][];
+    weights: number[];
+    expected_lowest_regret_strategy: string;
+    scenarios: Record<
+      ClimateStressId,
+      {
+        expected_stressed_scores: number[][];
+        expected_base_scores: number[];
+      }
+    >;
+  };
+
+  const specs = sv.strategies.map((name, idx) => ({
+    code: name,
+    name,
+    sequence: '',
+    isBaseline: sv.is_baseline[idx],
+    criterionScores: sv.scores[idx] as [number, number, number, number],
+    expectedBenefits: [],
+    informationGaps: [],
+    risksNeedingReview: [],
+  }));
+
+  for (const scenarioId of Object.keys(sv.scenarios) as ClimateStressId[]) {
+    const expected = sv.scenarios[scenarioId];
+    const stressed = applyClimateStressToStrategies(specs, scenarioId);
+    for (let i = 0; i < stressed.length; i++) {
+      for (let j = 0; j < 4; j++) {
+        assert.ok(
+          Math.abs(stressed[i][j] - expected.expected_stressed_scores[i][j]) < 2e-4,
+          `${scenarioId}[${i}][${j}]: expected ${expected.expected_stressed_scores[i][j]}, got ${stressed[i][j]}`,
+        );
+      }
+    }
+    const gotBase = baseScores(stressed, sv.weights);
+    for (let i = 0; i < gotBase.length; i++) {
+      assert.ok(
+        Math.abs(gotBase[i] - expected.expected_base_scores[i]) < 2e-4,
+        `${scenarioId} base[${i}]: expected ${expected.expected_base_scores[i]}, got ${gotBase[i]}`,
+      );
+    }
+  }
+
+  const mm = computeMinimaxRegretRankings(specs, sv.weights, baseScores);
+  assert.equal(mm.lowestRegretCode, sv.expected_lowest_regret_strategy);
+});
+
+test('classifyRgbaPatch distinguishes Intact green canopy, Partial cover, and Bare soil', () => {
+  const mkPatch = (r: number, g: number, b: number, n = 16) => {
+    const buf = new Uint8Array(n * 4);
+    for (let i = 0; i < n; i++) {
+      buf[i * 4] = r;
+      buf[i * 4 + 1] = g;
+      buf[i * 4 + 2] = b;
+      buf[i * 4 + 3] = 255;
+    }
+    return buf;
+  };
+
+  const intact = classifyRgbaPatch(mkPatch(45, 145, 45), 4, 4);
+  assert.equal(intact.soilCover, 'Intact');
+  assert.equal(intact.waterStressHint, 'None');
+  assert.ok(intact.canopyPct >= 90);
+
+  const bare = classifyRgbaPatch(mkPatch(145, 92, 65), 4, 4);
+  assert.equal(bare.soilCover, 'Bare');
+  assert.equal(bare.waterStressHint, 'Severe');
+  assert.ok(bare.barePct >= 90);
+
+  // 50% green canopy + 50% bare soil -> Partial
+  const mixed = new Uint8Array(16 * 4);
+  for (let i = 0; i < 16; i++) {
+    const isGreen = i < 8;
+    mixed[i * 4] = isGreen ? 45 : 145;
+    mixed[i * 4 + 1] = isGreen ? 145 : 92;
+    mixed[i * 4 + 2] = isGreen ? 45 : 65;
+    mixed[i * 4 + 3] = 255;
+  }
+  const partial = classifyRgbaPatch(mixed, 4, 4);
+  assert.equal(partial.soilCover, 'Partial');
+});
+
+test('authenticateWithPhonePin resolves challenge phone and 4-digit PIN pairs', () => {
+  const f = authenticateWithPhonePin('0512345601', '1111');
+  assert.equal(f.ok, true);
+  if (f.ok) assert.equal(f.session.role, 'farmer');
+
+  const o = authenticateWithPhonePin('0512345602', '2222');
+  assert.equal(o.ok, true);
+  if (o.ok) assert.equal(o.session.role, 'extension_officer');
+
+  const a = authenticateWithPhonePin('0512345603', '3333');
+  assert.equal(a.ok, true);
+  if (a.ok) assert.equal(a.session.role, 'agronomist');
+
+  const bad = authenticateWithPhonePin('0512345601', '9999');
+  assert.equal(bad.ok, false);
 });

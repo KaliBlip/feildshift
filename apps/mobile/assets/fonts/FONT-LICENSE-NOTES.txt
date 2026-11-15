@@ -1,0 +1,5 @@
+Typography assets were copied from the Roofi mobile project supplied by the user.
+
+Suncoast Grot license information in SuncoastGrot-License.txt identifies the font as a personal-use demo. The Roofi project instructions also say commercial font licensing must be confirmed before a production store release. Confirm and obtain the appropriate license before distributing Planner with these font files.
+
+Olive Display licensing was not included alongside the source font files. Confirm its license before production distribution as well.
