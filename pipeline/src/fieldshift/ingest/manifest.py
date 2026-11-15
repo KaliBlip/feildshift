@@ -64,11 +64,11 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
     "landsat": DatasetSpec(
         dataset_key="landsat",
         short_name="HLSL30",
-        provider="NASA LP DAAC / USGS",
+        provider="NASA LP DAAC / USGS / ESA (Planetary Computer HLS 30 m)",
         product_version="2.0",
         resolution_km=0.03,
-        temporal_cadence="5-16 days",
-        limitation_note="30 m field detail, severely cloud-limited in Ashanti peak rains.",
+        temporal_cadence="2-5 days (HLSL30 + HLSS30 harmonized)",
+        limitation_note="30 m field-scale surface reflectance & Fmask QA; cloud gaps during peak Ashanti rains.",
     ),
     "gedi_canopy": DatasetSpec(
         dataset_key="gedi_canopy",
@@ -127,11 +127,29 @@ DATASETS_REGISTRY: dict[str, DatasetSpec] = {
     "era5_land": DatasetSpec(
         dataset_key="era5_land",
         short_name="ECMWF_ERA5_LAND",
-        provider="Copernicus C3S / ECMWF",
+        provider="Copernicus C3S / ECMWF (Open-Meteo)",
         product_version="v1",
         resolution_km=9.0,
-        temporal_cadence="hourly / daily",
-        limitation_note="Reanalysis gap-fill; cross-checked against GPM IMERG.",
+        temporal_cadence="daily",
+        limitation_note="9 km reanalysis rainfall, 0-7 cm volumetric soil moisture (swvl1), cloud cover, and FAO-56 ET0.",
+    ),
+    "modis_lst": DatasetSpec(
+        dataset_key="modis_lst",
+        short_name="MOD11A2",
+        provider="NASA LP DAAC (Planetary Computer COGs)",
+        product_version="061",
+        resolution_km=1.0,
+        temporal_cadence="8-day composite",
+        limitation_note="1 km daytime Land Surface Temperature masked by QC_Day under wet-season clouds.",
+    ),
+    "copernicus_dem": DatasetSpec(
+        dataset_key="copernicus_dem",
+        short_name="COPERNICUS_DEM_GLO90",
+        provider="ESA / Copernicus (Open-Meteo Elevation)",
+        product_version="GLO-90",
+        resolution_km=0.09,
+        temporal_cadence="static",
+        limitation_note="90 m static digital elevation model used for cell altitude and finite-difference terrain slope.",
     ),
 }
 

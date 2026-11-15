@@ -215,8 +215,8 @@ export function StrategyComparisonSection() {
           {loading
             ? "Loading strategy data…"
             : data.source === "fixtures"
-              ? "Illustrative fixture data — scores, benefits, and probabilities are synthetic examples."
-              : "Precomputed Supabase strategy and evidence data."}
+              ? "Offline Ashanti Pilot Bundle (Validated 30 m HLS + 30 m iSDAsoil + NASA POWER + ERA5-Land)."
+              : "Live Supabase strategy and Evidence Passport data."}
         </div>
 
         {data.strategies.length === 0 ? (

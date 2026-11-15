@@ -579,6 +579,8 @@ export async function flushPendingOfflineQueue(): Promise<{
   writeJsonList(OUTCOME_QUEUE_KEY, remainingOut);
 
   return { flushed, remaining: remainingDec.length + remainingOut.length };
+}
+
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json | undefined };
 type Table<Row> = {
   Row: Row;
@@ -587,7 +589,7 @@ type Table<Row> = {
   Relationships: [];
 };
 
-type PilotCell = {
+type DbPilotCell = {
   cell_id: string;
   region_name: string;
   row_idx: number;
@@ -649,7 +651,7 @@ type SeasonFeatures = {
   created_at: string;
 };
 
-type EvidencePassport = {
+type DbEvidencePassport = {
   passport_id: string;
   cell_id: string;
   strategy_code: string;
@@ -690,10 +692,10 @@ type StrategyScore = {
 export type Database = {
   public: {
     Tables: {
-      pilot_cells: Table<PilotCell>;
+      pilot_cells: Table<DbPilotCell>;
       dekad_timeseries: Table<DekadTimeseries>;
       season_features: Table<SeasonFeatures>;
-      evidence_passports: Table<EvidencePassport>;
+      evidence_passports: Table<DbEvidencePassport>;
       strategy_scores: Table<StrategyScore>;
       decision_logs: Table<Record<string, Json>>;
       outcome_reports: Table<Record<string, Json>>;
@@ -706,10 +708,12 @@ export type Database = {
 };
 
 export function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) return null;
+  if (!url || !anonKey) return null;
 
-  return createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey);
+  return createSupabaseClient<Database>(url, anonKey);
 }

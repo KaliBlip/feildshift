@@ -21,8 +21,12 @@ from fieldshift.decision import DEFAULT_WEIGHTS, score_strategies_for_cell
 from fieldshift.evidence import generate_evidence_passports
 from fieldshift.features import estimate_hargreaves_et0, extract_season_features
 from fieldshift.ingest import (
+    EXTENDED_POWER_PARAMETERS,
     NON_GLOBAL_US_BASELINES,
+    fetch_copernicus_dem_topography,
     fetch_earthdata_ashanti_snapshot,
+    fetch_era5_land_daily,
+    fetch_hls_30m_planetary_computer_series,
     fetch_isdasoil_point,
     fetch_nasa_power_daily,
     fetch_soilgrids_point,
@@ -202,67 +206,96 @@ def _fetch_optional_live_cell_baselines(
     start_date: str,
     end_date: str,
 ) -> tuple[pd.DataFrame | None, dict[str, Any] | None, list[dict[str, Any]]]:
-    """Fetch public no-auth NASA POWER daily & ISRIC SoilGrids baselines if network permits."""
+    """Fetch public no-auth NASA POWER daily & ISRIC SoilGrids baselines."""
     live_records: list[dict[str, Any]] = []
-    power_df: pd.DataFrame | None = None
-    soil_summary: dict[str, Any] | None = None
-
-    try:
-        p_df, p_rec = fetch_nasa_power_daily(
-            lat=lat,
-            lon=lon,
-            start_yyyymmdd=start_date,
-            end_yyyymmdd=end_date,
-        )
-        power_df = p_df
-        live_records.append(asdict(p_rec))
-    except Exception:
-        power_df = None
+    power_df, p_rec = fetch_nasa_power_daily(
+        lat=lat,
+        lon=lon,
+        start_yyyymmdd=start_date,
+        end_yyyymmdd=end_date,
+        parameters=EXTENDED_POWER_PARAMETERS,
+    )
+    live_records.append(asdict(p_rec))
 
     s_sum, s_rec_dict = _fetch_best_soil_baseline(lat=lat, lon=lon)
-    soil_summary = s_sum
     if s_rec_dict is not None:
         live_records.append(s_rec_dict)
 
-    return power_df, soil_summary, live_records
+    return power_df, s_sum, live_records
 
 
 def _fetch_best_soil_baseline(
     lat: float,
     lon: float,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """Fetch 30 m iSDAsoil baseline when configured, falling back seamlessly to SoilGrids 250 m."""
+    """Fetch 30 m iSDAsoil baseline when configured, else real ISRIC SoilGrids 250 m."""
     if os.environ.get("ISDASOIL_USERNAME") and os.environ.get("ISDASOIL_PASSWORD"):
         try:
             s_sum, s_rec = fetch_isdasoil_point(lat=lat, lon=lon)
             return s_sum, asdict(s_rec)
         except Exception:
             pass
-    try:
-        s_sum, s_rec = fetch_soilgrids_point(lat=lat, lon=lon)
-        return s_sum, asdict(s_rec)
-    except Exception:
-        return None, None
+    s_sum, s_rec = fetch_soilgrids_point(lat=lat, lon=lon)
+    return s_sum, asdict(s_rec)
 
 
-def _merge_power_rain_and_temp(daily_df: pd.DataFrame, power_df: pd.DataFrame) -> pd.DataFrame:
-    merged = daily_df.copy()
-    p_sub = power_df[["date", "rain_power_mm", "tmax_c", "tmin_c"]].copy()
-    p_sub["date"] = pd.to_datetime(p_sub["date"]).dt.strftime("%Y-%m-%d")
-    merged["date"] = pd.to_datetime(merged["date"]).dt.strftime("%Y-%m-%d")
-    joined = merged.merge(p_sub, on="date", how="left", suffixes=("", "_power"))
-    # Replace synthetic agroclimate temperature and bias-blend rainfall when live POWER arrives
-    joined["tmax_c"] = joined["tmax_c_power"].combine_first(joined["tmax_c"])
-    if "tmin_c_power" in joined.columns:
-        joined["tmin_c"] = joined["tmin_c_power"].combine_first(joined["tmin_c"])
-    if "rain_power_mm" in joined.columns:
-        valid_rain = joined["rain_power_mm"].notna()
-        joined.loc[valid_rain, "rain_imerg_mm"] = np.round(
-            0.5 * joined.loc[valid_rain, "rain_imerg_mm"] + 0.5 * joined.loc[valid_rain, "rain_power_mm"],
-            2,
-        )
-    drop_cols = [c for c in ("tmax_c_power", "tmin_c_power", "rain_power_mm") if c in joined.columns]
-    return joined.drop(columns=drop_cols)
+def _assemble_live_cell_daily_df(
+    cell_id: str,
+    years: Sequence[int],
+    power_df: pd.DataFrame,
+    era5_df: pd.DataFrame,
+    modis_ndvi_df: pd.DataFrame,
+    modis_lst_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Join 100% real NASA POWER, ECMWF ERA5-Land, and MODIS COG observations on a daily calendar."""
+    dates = pd.date_range(f"{min(years)}-01-01", f"{max(years)}-12-31", freq="D")
+    base = pd.DataFrame({"cell_id": cell_id, "date": dates})
+
+    p = power_df.copy()
+    p["date"] = pd.to_datetime(p["date"])
+    e = era5_df.copy()
+    e["date"] = pd.to_datetime(e["date"])
+
+    merged = base.merge(p, on="date", how="left").merge(e, on="date", how="left")
+
+    n_sub = modis_ndvi_df[modis_ndvi_df["cell_id"] == cell_id][["date", "ndvi_raw", "cloud_prob_modis"]].copy()
+    n_sub["date"] = pd.to_datetime(n_sub["date"])
+    l_sub = modis_lst_df[modis_lst_df["cell_id"] == cell_id][["date", "lst_max_c"]].copy()
+    l_sub["date"] = pd.to_datetime(l_sub["date"])
+
+    merged = merged.merge(n_sub, on="date", how="left").merge(l_sub, on="date", how="left")
+
+    # Prefer NASA POWER PRECTOTCORR (GPM/MERRA-2 calibrated) with ERA5-Land gap-fill for trailing days
+    merged["rain_imerg_mm"] = merged["rain_power_mm"].combine_first(merged["rain_era5_mm"]).fillna(0.0).round(2)
+    merged["rain_era5_mm"] = merged["rain_era5_mm"].fillna(0.0).round(2)
+    merged["tmax_c"] = merged["tmax_c"].combine_first(merged["tmax_era5_c"]).round(2)
+    merged["tmin_c"] = merged["tmin_c"].combine_first(merged["tmin_era5_c"]).round(2)
+    merged["et0_mm"] = merged["et0_mm"].fillna(0.0).round(3)
+    merged["smap_sm_m3m3"] = merged["smap_sm_m3m3"].round(4)
+
+    power_cloud = np.clip(merged["cloud_amt_pct"] / 100.0, 0.0, 1.0) if "cloud_amt_pct" in merged.columns else np.nan
+    merged["cloud_prob"] = (
+        merged["cloud_prob_modis"]
+        .combine_first(merged["cloud_prob_era5"])
+        .combine_first(power_cloud)
+        .fillna(0.25)
+        .round(3)
+    )
+
+    cols = [
+        "cell_id",
+        "date",
+        "rain_imerg_mm",
+        "rain_era5_mm",
+        "smap_sm_m3m3",
+        "ndvi_raw",
+        "cloud_prob",
+        "tmax_c",
+        "tmin_c",
+        "lst_max_c",
+        "et0_mm",
+    ]
+    return merged[cols].sort_values("date").reset_index(drop=True)
 
 
 def _select_cells(
@@ -286,7 +319,7 @@ def build_pilot_bundle(
     years: Sequence[int] = (2022, 2023, 2024, 2025),
     farm_area_ha: float = 2.0,
     cell_limit: int | None = 5,
-    fetch_live_baseline: bool = False,
+    fetch_live_baseline: bool = True,
     cell_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Run the end-to-end Ashanti pilot pipeline and assemble Supabase-ready JSON tables."""
@@ -298,10 +331,27 @@ def build_pilot_bundle(
     selected_cells = _select_cells(all_cells, cell_limit=cell_limit, cell_ids=cell_ids)
     start_yyyymmdd = f"{min(years)}0101"
     end_yyyymmdd = f"{max(years)}1231"
+    start_iso = f"{min(years)}-01-01"
+    end_iso = f"{max(years)}-12-31"
 
     earthdata_snapshot: dict[str, Any] | None = None
     earthdata_prov: list[dict[str, Any]] = []
+    dem_by_cell: dict[str, dict[str, float]] = {}
+    dem_prov: dict[str, Any] | None = None
+    modis_ndvi_df = pd.DataFrame()
+    modis_lst_df = pd.DataFrame()
+    modis_prov: list[dict[str, Any]] = []
+
     if fetch_live_baseline:
+        topo_map, d_rec = fetch_copernicus_dem_topography(selected_cells)
+        dem_by_cell = topo_map
+        dem_prov = asdict(d_rec)
+
+        modis_ndvi_df, modis_lst_df, m_recs = fetch_hls_30m_planetary_computer_series(
+            selected_cells, start_date=start_iso, end_date=end_iso
+        )
+        modis_prov = [asdict(r) for r in m_recs]
+
         try:
             snap, ed_records = fetch_earthdata_ashanti_snapshot()
             earthdata_snapshot = snap
@@ -316,7 +366,7 @@ def build_pilot_bundle(
     phenology_rows: list[dict[str, Any]] = []
     soil_baselines: dict[str, dict[str, Any]] = {}
     provenance_by_cell: dict[str, list[dict[str, Any]]] = {}
-    power_cache: dict[tuple[float, float], tuple[pd.DataFrame | None, dict[str, Any] | None]] = {}
+    power_cache: dict[tuple[float, float], tuple[pd.DataFrame, dict[str, Any]]] = {}
 
     scale_assessment = evaluate_scale_honesty(farm_area_ha, config.dataset_resolutions_km)
     scale_honesty_payload = {
@@ -327,81 +377,94 @@ def build_pilot_bundle(
 
     for idx, cell in enumerate(selected_cells):
         cell_id = str(cell["cell_id"])
-        slope_pct = round(3.8 + 1.1 * idx, 2)
+        clat = float(cell["centre_lat"])
+        clon = float(cell["centre_lon"])
 
-        power_df: pd.DataFrame | None = None
         soil_summary: dict[str, Any] | None = None
-        live_prov: list[dict[str, Any]] = list(earthdata_prov)
+        live_prov: list[dict[str, Any]] = []
+
         if fetch_live_baseline:
-            # NASA POWER has a ~0.5 deg grid; cache per coarse 0.5-deg key across pilot cells
-            p_key = (round(float(cell["centre_lat"]) * 2.0) / 2.0, round(float(cell["centre_lon"]) * 2.0) / 2.0)
+            if dem_prov is not None:
+                live_prov.append(dem_prov)
+            live_prov.extend(modis_prov)
+            live_prov.extend(earthdata_prov)
+
+            slope_pct = float(dem_by_cell[cell_id]["slope_pct"])
+            elevation_m = float(dem_by_cell[cell_id]["elevation_m"])
+
+            p_key = (round(clat * 2.0) / 2.0, round(clon * 2.0) / 2.0)
             if p_key in power_cache:
                 power_df, cached_p_rec = power_cache[p_key]
-                if cached_p_rec is not None:
-                    live_prov.append(cached_p_rec)
-                soil_summary, s_rec_dict = _fetch_best_soil_baseline(
-                    lat=float(cell["centre_lat"]),
-                    lon=float(cell["centre_lon"]),
-                )
+                live_prov.append(cached_p_rec)
+                soil_summary, s_rec_dict = _fetch_best_soil_baseline(lat=clat, lon=clon)
                 if s_rec_dict is not None:
                     live_prov.append(s_rec_dict)
             else:
                 power_df, soil_summary, cell_live_prov = _fetch_optional_live_cell_baselines(
-                    lat=float(cell["centre_lat"]),
-                    lon=float(cell["centre_lon"]),
+                    lat=clat,
+                    lon=clon,
                     start_date=start_yyyymmdd,
                     end_date=end_yyyymmdd,
                 )
+                assert power_df is not None
                 cached_power_rec = next(
-                    (rec for rec in cell_live_prov if rec.get("dataset_key") == "nasa_power"),
-                    None,
+                    rec for rec in cell_live_prov if rec.get("dataset_key") == "nasa_power"
                 )
                 power_cache[p_key] = (power_df, cached_power_rec)
                 live_prov.extend(cell_live_prov)
 
-        if soil_summary:
-            soil_baselines[cell_id] = soil_summary
+            era5_df, era5_rec = fetch_era5_land_daily(
+                lat=clat,
+                lon=clon,
+                start_date=start_iso,
+                end_date=end_iso,
+            )
+            live_prov.append(asdict(era5_rec))
 
-        year_dailies: list[pd.DataFrame] = []
-        live_keys = {
-            rec.get("dataset_key")
-            for rec in live_prov
-            if rec.get("retrieval_mode") == "live"
-        }
-        cell_prov: list[dict[str, Any]] = list(live_prov)
-        for yr in years:
-            df_yr, manifest = generate_ashanti_pilot_raw_daily(
+            daily_all = _assemble_live_cell_daily_df(
                 cell_id=cell_id,
-                year=int(yr),
-                seed=42 + idx * 17 + int(yr),
-                centre_lat=float(cell["centre_lat"]),
-                centre_lon=float(cell["centre_lon"]),
+                years=years,
+                power_df=power_df,
+                era5_df=era5_df,
+                modis_ndvi_df=modis_ndvi_df,
+                modis_lst_df=modis_lst_df,
             )
-            dates = pd.to_datetime(df_yr["date"])
-            doy = dates.dt.day_of_year.to_numpy(dtype=float)
-            tmin = np.maximum(18.0, df_yr["tmax_c"].to_numpy(dtype=float) - 8.5)
-            df_yr["tmin_c"] = np.round(tmin, 2)
-            df_yr["et0_mm"] = estimate_hargreaves_et0(
-                tmin_c=tmin,
-                tmax_c=df_yr["tmax_c"].to_numpy(dtype=float),
-                doy=doy,
-                lat_deg=float(cell["centre_lat"]),
-            )
-            year_dailies.append(df_yr)
-            if yr == years[0]:
-                for rec in manifest.records:
-                    d_rec = asdict(rec)
-                    if d_rec["dataset_key"] not in live_keys:
-                        cell_prov.append(d_rec)
-
-        daily_all = pd.concat(year_dailies, ignore_index=True)
-        if power_df is not None and not power_df.empty:
-            daily_all = _merge_power_rain_and_temp(daily_all, power_df)
+            provenance_by_cell[cell_id] = live_prov
+            if soil_summary:
+                soil_baselines[cell_id] = soil_summary
+        else:
+            # Explicit offline unit-test fixture path (when fetch_live_baseline=False)
+            slope_pct = round(3.8 + 1.1 * idx, 2)
+            elevation_m = round(215.0 + 18.0 * idx, 1)
+            year_dailies: list[pd.DataFrame] = []
+            cell_prov: list[dict[str, Any]] = []
+            for yr in years:
+                df_yr, manifest = generate_ashanti_pilot_raw_daily(
+                    cell_id=cell_id,
+                    year=int(yr),
+                    seed=42 + idx * 17 + int(yr),
+                    centre_lat=clat,
+                    centre_lon=clon,
+                )
+                dates = pd.to_datetime(df_yr["date"])
+                doy = dates.dt.day_of_year.to_numpy(dtype=float)
+                tmin = np.maximum(18.0, df_yr["tmax_c"].to_numpy(dtype=float) - 8.5)
+                df_yr["tmin_c"] = np.round(tmin, 2)
+                df_yr["et0_mm"] = estimate_hargreaves_et0(
+                    tmin_c=tmin,
+                    tmax_c=df_yr["tmax_c"].to_numpy(dtype=float),
+                    doy=doy,
+                    lat_deg=clat,
+                )
+                year_dailies.append(df_yr)
+                if yr == years[0]:
+                    cell_prov.extend(asdict(rec) for rec in manifest.records)
+            daily_all = pd.concat(year_dailies, ignore_index=True)
+            provenance_by_cell[cell_id] = cell_prov
 
         daily_frames_by_cell[cell_id] = daily_all
-        provenance_by_cell[cell_id] = cell_prov
 
-        cube = build_dekad_cube(daily_all, provenance_id=f"{cell_id}_phase3_live" if fetch_live_baseline else f"{cell_id}_pilot")
+        cube = build_dekad_cube(daily_all, provenance_id=f"{cell_id}_live_eo" if fetch_live_baseline else f"{cell_id}_unit_test")
         cube_frames.append(cube)
 
         pheno = extract_ndvi_phenology(cube, cfg=config)
@@ -417,16 +480,16 @@ def build_pilot_bundle(
                 "region_name": cell["region_name"],
                 "row_idx": int(cell["row_idx"]),
                 "col_idx": int(cell["col_idx"]),
-                "centre_lat": float(cell["centre_lat"]),
-                "centre_lon": float(cell["centre_lon"]),
+                "centre_lat": clat,
+                "centre_lon": clon,
                 "bbox": list(cell["bbox"]),
                 "geom": _bbox_to_ewkt_polygon(cell["bbox"]),
-                "centroid": _point_to_ewkt(float(cell["centre_lon"]), float(cell["centre_lat"])),
-                "elevation_m": round(215.0 + 18.0 * idx, 1),
+                "centroid": _point_to_ewkt(clon, clat),
+                "elevation_m": elevation_m,
                 "slope_pct": slope_pct,
-                "soil_texture": soil_summary.get("soil_texture") if soil_summary else "Sandy clay loam",
-                "soil_organic_carbon_g_kg": soil_summary.get("soil_organic_carbon_g_kg") if soil_summary else 14.0,
-                "soil_ph": soil_summary.get("soil_ph") if soil_summary else 5.8,
+                "soil_texture": soil_summary.get("soil_texture") if soil_summary else None,
+                "soil_organic_carbon_g_kg": soil_summary.get("soil_organic_carbon_g_kg") if soil_summary else None,
+                "soil_ph": soil_summary.get("soil_ph") if soil_summary else None,
                 "native_resolutions_km": cell["native_resolutions_km"],
             }
         )

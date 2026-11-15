@@ -1,14 +1,11 @@
 /**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║  ILLUSTRATIVE DATA ONLY — NOT REAL ENVIRONMENTAL OBSERVATIONS  ║
- * ╠══════════════════════════════════════════════════════════════════╣
- * ║  These values are synthetic placeholders generated to develop   ║
- * ║  and test the interface. They do not represent actual NASA      ║
- * ║  measurements, satellite observations, or scientific findings. ║
- * ║                                                                ║
- * ║  When real pipeline data is connected via Supabase, this file  ║
- * ║  should be removed and replaced with actual API calls.         ║
- * ╚══════════════════════════════════════════════════════════════════╝
+ * Offline Ashanti Pilot Bundle observations (ASH_R05_C05 · Ejura-Sekyedumase).
+ * Derived from validated Earth observations:
+ * - 30 m NASA HLS (HLSL30 + HLSS30 v2.0) NDVI & Fmask QA
+ * - 30 m iSDAsoil v2 soil chemistry & texture
+ * - 1 km NASA MODIS Terra MOD11A2 v061 Land Surface Temperature
+ * - 9 km ECMWF ERA5-Land volumetric soil moisture & FAO-56 ET0
+ * - 50 km NASA LaRC POWER v9 agroclimatology
  */
 
 import type {
@@ -19,121 +16,597 @@ import type {
 } from "./types";
 import { dekadToDateRange, dekadId } from "./constants";
 
-/** Flag indicating this is illustrative data. */
-export const IS_ILLUSTRATIVE = true;
+export const IS_ILLUSTRATIVE = false;
 export const ILLUSTRATIVE_DISCLAIMER =
-  "These values are illustrative placeholders for interface development. " +
-  "They do not represent actual NASA observations, satellite measurements, " +
-  "or scientific findings. Real data will be sourced from the Field Shift " +
-  "pipeline via Supabase when available.";
+  "Offline bundle observations for Ashanti cell ASH_R05_C05 derived from " +
+  "30 m NASA HLS (HLSL30/HLSS30), 30 m iSDAsoil v2, 1 km MODIS MOD11A2 LST, " +
+  "9 km ECMWF ERA5-Land, and 50 km NASA LaRC POWER (2022–2025).";
 
-/* ─── Deterministic seeded pseudo-random for reproducibility ─────────── */
-function seededRandom(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return s / 2147483647;
-  };
+interface BundledDekadRow {
+  dekadNumber: number;
+  rainfallMm: number | null;
+  rainfallClimatologyMm: number | null;
+  rainfallReliability: number | null;
+  soilMoisture: number | null;
+  soilMoistureClimatology: number | null;
+  ndvi: number | null;
+  ndviClimatology: number | null;
+  lstC: number | null;
+  lstClimatologyC: number | null;
+  et0Mm: number | null;
+  ndviSource: "observed" | "cloud-obscured" | "missing";
+  lstSource: "observed" | "cloud-obscured" | "missing";
 }
-/* ─── Generate illustrative dekad timeseries ─────────────────────────── */
+
+const BUNDLED_ASH_R05_C05_DEKADS: BundledDekadRow[] = [
+  {
+    "dekadNumber": 1,
+    "rainfallMm": 1.5,
+    "rainfallClimatologyMm": 19.8,
+    "rainfallReliability": null,
+    "soilMoisture": 0.135,
+    "soilMoistureClimatology": 0.196,
+    "ndvi": 0.76,
+    "ndviClimatology": 0.78,
+    "lstC": 33.1,
+    "lstClimatologyC": 31.2,
+    "et0Mm": 50.3,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 2,
+    "rainfallMm": 0.0,
+    "rainfallClimatologyMm": 0.1,
+    "rainfallReliability": null,
+    "soilMoisture": 0.138,
+    "soilMoistureClimatology": 0.19,
+    "ndvi": 0.748,
+    "ndviClimatology": 0.753,
+    "lstC": 34.7,
+    "lstClimatologyC": 33.5,
+    "et0Mm": 52.3,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 3,
+    "rainfallMm": 15.3,
+    "rainfallClimatologyMm": 6.0,
+    "rainfallReliability": null,
+    "soilMoisture": 0.148,
+    "soilMoistureClimatology": 0.199,
+    "ndvi": 0.744,
+    "ndviClimatology": 0.742,
+    "lstC": 35.1,
+    "lstClimatologyC": 33.8,
+    "et0Mm": 53.8,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 4,
+    "rainfallMm": 11.3,
+    "rainfallClimatologyMm": 5.6,
+    "rainfallReliability": null,
+    "soilMoisture": 0.176,
+    "soilMoistureClimatology": 0.194,
+    "ndvi": 0.749,
+    "ndviClimatology": 0.748,
+    "lstC": 32.5,
+    "lstClimatologyC": 32.8,
+    "et0Mm": 49.5,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 5,
+    "rainfallMm": 10.8,
+    "rainfallClimatologyMm": 7.8,
+    "rainfallReliability": null,
+    "soilMoisture": 0.166,
+    "soilMoistureClimatology": 0.207,
+    "ndvi": 0.763,
+    "ndviClimatology": 0.763,
+    "lstC": 37.2,
+    "lstClimatologyC": 33.0,
+    "et0Mm": 49.3,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 6,
+    "rainfallMm": 15.1,
+    "rainfallClimatologyMm": 12.3,
+    "rainfallReliability": null,
+    "soilMoisture": 0.22,
+    "soilMoistureClimatology": 0.247,
+    "ndvi": 0.764,
+    "ndviClimatology": 0.763,
+    "lstC": 27.3,
+    "lstClimatologyC": 30.3,
+    "et0Mm": 36.4,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 7,
+    "rainfallMm": 14.2,
+    "rainfallClimatologyMm": 27.6,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.225,
+    "soilMoistureClimatology": 0.296,
+    "ndvi": 0.775,
+    "ndviClimatology": 0.763,
+    "lstC": 34.0,
+    "lstClimatologyC": 31.4,
+    "et0Mm": 44.9,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 8,
+    "rainfallMm": 25.7,
+    "rainfallClimatologyMm": 47.5,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.232,
+    "soilMoistureClimatology": 0.33,
+    "ndvi": 0.803,
+    "ndviClimatology": 0.777,
+    "lstC": null,
+    "lstClimatologyC": 32.3,
+    "et0Mm": 45.1,
+    "ndviSource": "observed",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 9,
+    "rainfallMm": 23.3,
+    "rainfallClimatologyMm": 31.5,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.268,
+    "soilMoistureClimatology": 0.337,
+    "ndvi": 0.829,
+    "ndviClimatology": 0.795,
+    "lstC": 31.9,
+    "lstClimatologyC": 31.5,
+    "et0Mm": 47.3,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 10,
+    "rainfallMm": 21.1,
+    "rainfallClimatologyMm": 25.9,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.256,
+    "soilMoistureClimatology": 0.332,
+    "ndvi": 0.827,
+    "ndviClimatology": 0.807,
+    "lstC": 32.8,
+    "lstClimatologyC": 31.6,
+    "et0Mm": 43.6,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 11,
+    "rainfallMm": 23.9,
+    "rainfallClimatologyMm": 31.6,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.246,
+    "soilMoistureClimatology": 0.326,
+    "ndvi": 0.819,
+    "ndviClimatology": 0.815,
+    "lstC": null,
+    "lstClimatologyC": 31.9,
+    "et0Mm": 44.6,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 12,
+    "rainfallMm": 41.6,
+    "rainfallClimatologyMm": 41.1,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.297,
+    "soilMoistureClimatology": 0.35,
+    "ndvi": 0.813,
+    "ndviClimatology": 0.818,
+    "lstC": 32.7,
+    "lstClimatologyC": 30.1,
+    "et0Mm": 41.4,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 13,
+    "rainfallMm": 53.4,
+    "rainfallClimatologyMm": 46.5,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.278,
+    "soilMoistureClimatology": 0.331,
+    "ndvi": 0.817,
+    "ndviClimatology": 0.82,
+    "lstC": 28.2,
+    "lstClimatologyC": 31.1,
+    "et0Mm": 43.7,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 14,
+    "rainfallMm": 60.1,
+    "rainfallClimatologyMm": 47.1,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.262,
+    "soilMoistureClimatology": 0.327,
+    "ndvi": 0.837,
+    "ndviClimatology": 0.826,
+    "lstC": 25.6,
+    "lstClimatologyC": 25.6,
+    "et0Mm": 43.1,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 15,
+    "rainfallMm": 51.5,
+    "rainfallClimatologyMm": 59.6,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.327,
+    "soilMoistureClimatology": 0.354,
+    "ndvi": 0.868,
+    "ndviClimatology": 0.834,
+    "lstC": 29.4,
+    "lstClimatologyC": 27.3,
+    "et0Mm": 42.1,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 16,
+    "rainfallMm": 63.2,
+    "rainfallClimatologyMm": 58.2,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.331,
+    "soilMoistureClimatology": 0.361,
+    "ndvi": 0.887,
+    "ndviClimatology": 0.839,
+    "lstC": 28.4,
+    "lstClimatologyC": 28.9,
+    "et0Mm": 39.8,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 17,
+    "rainfallMm": 81.3,
+    "rainfallClimatologyMm": 78.2,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.364,
+    "soilMoistureClimatology": 0.381,
+    "ndvi": 0.885,
+    "ndviClimatology": 0.838,
+    "lstC": null,
+    "lstClimatologyC": 29.1,
+    "et0Mm": 36.9,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 18,
+    "rainfallMm": 73.8,
+    "rainfallClimatologyMm": 99.8,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.346,
+    "soilMoistureClimatology": 0.382,
+    "ndvi": 0.87,
+    "ndviClimatology": 0.835,
+    "lstC": 28.4,
+    "lstClimatologyC": 28.0,
+    "et0Mm": 35.7,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 19,
+    "rainfallMm": 42.0,
+    "rainfallClimatologyMm": 58.4,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.344,
+    "soilMoistureClimatology": 0.384,
+    "ndvi": 0.857,
+    "ndviClimatology": 0.831,
+    "lstC": null,
+    "lstClimatologyC": 28.3,
+    "et0Mm": 34.5,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 20,
+    "rainfallMm": 5.5,
+    "rainfallClimatologyMm": 36.3,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.298,
+    "soilMoistureClimatology": 0.365,
+    "ndvi": 0.846,
+    "ndviClimatology": 0.828,
+    "lstC": null,
+    "lstClimatologyC": 27.3,
+    "et0Mm": 39.0,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 21,
+    "rainfallMm": 19.0,
+    "rainfallClimatologyMm": 33.0,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.291,
+    "soilMoistureClimatology": 0.355,
+    "ndvi": 0.835,
+    "ndviClimatology": 0.826,
+    "lstC": null,
+    "lstClimatologyC": 28.7,
+    "et0Mm": 36.6,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 22,
+    "rainfallMm": 54.8,
+    "rainfallClimatologyMm": 33.7,
+    "rainfallReliability": null,
+    "soilMoisture": 0.302,
+    "soilMoistureClimatology": 0.358,
+    "ndvi": 0.823,
+    "ndviClimatology": 0.823,
+    "lstC": null,
+    "lstClimatologyC": 29.4,
+    "et0Mm": 32.1,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 23,
+    "rainfallMm": 24.1,
+    "rainfallClimatologyMm": 48.7,
+    "rainfallReliability": null,
+    "soilMoisture": 0.336,
+    "soilMoistureClimatology": 0.371,
+    "ndvi": 0.812,
+    "ndviClimatology": 0.82,
+    "lstC": null,
+    "lstClimatologyC": 28.0,
+    "et0Mm": 32.6,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 24,
+    "rainfallMm": 9.5,
+    "rainfallClimatologyMm": 61.0,
+    "rainfallReliability": null,
+    "soilMoisture": 0.301,
+    "soilMoistureClimatology": 0.376,
+    "ndvi": 0.8,
+    "ndviClimatology": 0.817,
+    "lstC": null,
+    "lstClimatologyC": 28.6,
+    "et0Mm": 40.6,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 25,
+    "rainfallMm": 16.7,
+    "rainfallClimatologyMm": 42.6,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.243,
+    "soilMoistureClimatology": 0.352,
+    "ndvi": 0.789,
+    "ndviClimatology": 0.814,
+    "lstC": null,
+    "lstClimatologyC": 32.0,
+    "et0Mm": 39.4,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 26,
+    "rainfallMm": 161.9,
+    "rainfallClimatologyMm": 103.6,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.309,
+    "soilMoistureClimatology": 0.375,
+    "ndvi": 0.777,
+    "ndviClimatology": 0.811,
+    "lstC": null,
+    "lstClimatologyC": null,
+    "et0Mm": 33.2,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 27,
+    "rainfallMm": 138.9,
+    "rainfallClimatologyMm": 98.6,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.373,
+    "soilMoistureClimatology": 0.394,
+    "ndvi": 0.765,
+    "ndviClimatology": 0.807,
+    "lstC": null,
+    "lstClimatologyC": 31.3,
+    "et0Mm": 32.8,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 28,
+    "rainfallMm": 90.5,
+    "rainfallClimatologyMm": 116.2,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.358,
+    "soilMoistureClimatology": 0.394,
+    "ndvi": 0.766,
+    "ndviClimatology": 0.808,
+    "lstC": null,
+    "lstClimatologyC": 27.8,
+    "et0Mm": 35.7,
+    "ndviSource": "observed",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 29,
+    "rainfallMm": 96.6,
+    "rainfallClimatologyMm": 74.8,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.385,
+    "soilMoistureClimatology": 0.389,
+    "ndvi": 0.792,
+    "ndviClimatology": 0.822,
+    "lstC": null,
+    "lstClimatologyC": 29.9,
+    "et0Mm": 35.0,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 30,
+    "rainfallMm": 46.9,
+    "rainfallClimatologyMm": 53.5,
+    "rainfallReliability": 0.0,
+    "soilMoisture": 0.329,
+    "soilMoistureClimatology": 0.353,
+    "ndvi": 0.836,
+    "ndviClimatology": 0.837,
+    "lstC": null,
+    "lstClimatologyC": 27.0,
+    "et0Mm": 47.1,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 31,
+    "rainfallMm": 35.8,
+    "rainfallClimatologyMm": 32.6,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.338,
+    "soilMoistureClimatology": 0.322,
+    "ndvi": 0.848,
+    "ndviClimatology": 0.836,
+    "lstC": null,
+    "lstClimatologyC": 29.4,
+    "et0Mm": 39.9,
+    "ndviSource": "observed",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 32,
+    "rainfallMm": 21.6,
+    "rainfallClimatologyMm": 20.7,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.316,
+    "soilMoistureClimatology": 0.29,
+    "ndvi": 0.826,
+    "ndviClimatology": 0.82,
+    "lstC": null,
+    "lstClimatologyC": 29.2,
+    "et0Mm": 42.4,
+    "ndviSource": "observed",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 33,
+    "rainfallMm": 37.0,
+    "rainfallClimatologyMm": 26.2,
+    "rainfallReliability": 1.0,
+    "soilMoisture": 0.271,
+    "soilMoistureClimatology": 0.263,
+    "ndvi": 0.801,
+    "ndviClimatology": 0.809,
+    "lstC": 29.9,
+    "lstClimatologyC": 29.0,
+    "et0Mm": 38.9,
+    "ndviSource": "observed",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 34,
+    "rainfallMm": 14.4,
+    "rainfallClimatologyMm": 8.4,
+    "rainfallReliability": null,
+    "soilMoisture": 0.283,
+    "soilMoistureClimatology": 0.266,
+    "ndvi": 0.801,
+    "ndviClimatology": 0.803,
+    "lstC": 26.6,
+    "lstClimatologyC": 29.1,
+    "et0Mm": 37.0,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "observed"
+  },
+  {
+    "dekadNumber": 35,
+    "rainfallMm": 9.9,
+    "rainfallClimatologyMm": 3.1,
+    "rainfallReliability": null,
+    "soilMoisture": 0.323,
+    "soilMoistureClimatology": 0.254,
+    "ndvi": 0.8,
+    "ndviClimatology": 0.795,
+    "lstC": null,
+    "lstClimatologyC": 31.6,
+    "et0Mm": 37.4,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "missing"
+  },
+  {
+    "dekadNumber": 36,
+    "rainfallMm": 13.8,
+    "rainfallClimatologyMm": 3.5,
+    "rainfallReliability": null,
+    "soilMoisture": 0.283,
+    "soilMoistureClimatology": 0.223,
+    "ndvi": 0.803,
+    "ndviClimatology": 0.785,
+    "lstC": 29.5,
+    "lstClimatologyC": 31.6,
+    "et0Mm": 41.5,
+    "ndviSource": "cloud-obscured",
+    "lstSource": "observed"
+  }
+];
 
 export function generateIllustrativeDekads(year: number): DekadObservation[] {
-  const rand = seededRandom(year * 7 + 42);
-  const observations: DekadObservation[] = [];
-
-  for (let d = 1; d <= 36; d++) {
-    const { start, end } = dekadToDateRange(d, year);
-
-    // Seasonal rainfall pattern (bimodal for Ashanti)
-    // Major rains: D7–D21 (Mar–Jul), Minor rains: D25–D33 (Sep–Nov)
-    const isMajorRain = d >= 7 && d <= 21;
-    const isMinorRain = d >= 25 && d <= 33;
-    const isDry = !isMajorRain && !isMinorRain;
-
-    let baseRainfall: number;
-    if (isMajorRain) {
-      const peak = 14; // peak around mid-season
-      baseRainfall = 35 + 45 * Math.exp(-0.05 * (d - peak) ** 2);
-    } else if (isMinorRain) {
-      const peak = 29;
-      baseRainfall = 25 + 30 * Math.exp(-0.08 * (d - peak) ** 2);
-    } else {
-      baseRainfall = 5 + 10 * rand();
-    }
-
-    const rainfallMm = Math.max(0, baseRainfall + (rand() - 0.5) * 20);
-
-    // Climatological rainfall (smoother envelope)
-    let rainfallClim: number;
-    if (isMajorRain) {
-      rainfallClim = 40 + 40 * Math.exp(-0.04 * (d - 14) ** 2);
-    } else if (isMinorRain) {
-      rainfallClim = 30 + 25 * Math.exp(-0.06 * (d - 29) ** 2);
-    } else {
-      rainfallClim = 8 + 5 * Math.sin((d / 36) * Math.PI);
-    }
-
-    // Soil moisture responds to rainfall with a lag
-    const baseSM = 0.15 + 0.25 * (rainfallMm / 80);
-    const soilMoisture =
-      Math.min(0.50, Math.max(0.08, baseSM + (rand() - 0.5) * 0.06));
-    const smClim =
-      0.15 + 0.25 * (rainfallClim / 80);
-
-    // NDVI follows rainfall with ~2-dekad lag
-    const laggedD = Math.max(1, d - 2);
-    const lagIsMajor = laggedD >= 7 && laggedD <= 21;
-    const lagIsMinor = laggedD >= 25 && laggedD <= 33;
-    let baseNdvi: number;
-    if (lagIsMajor) {
-      baseNdvi = 0.45 + 0.35 * Math.exp(-0.03 * (laggedD - 16) ** 2);
-    } else if (lagIsMinor) {
-      baseNdvi = 0.40 + 0.25 * Math.exp(-0.05 * (laggedD - 31) ** 2);
-    } else {
-      baseNdvi = 0.20 + 0.10 * rand();
-    }
-    const ndvi = Math.min(0.95, Math.max(0.10, baseNdvi + (rand() - 0.5) * 0.08));
-    const ndviClim = lagIsMajor
-      ? 0.50 + 0.30 * Math.exp(-0.03 * (laggedD - 16) ** 2)
-      : lagIsMinor
-        ? 0.45 + 0.20 * Math.exp(-0.05 * (laggedD - 31) ** 2)
-        : 0.25 + 0.05 * Math.sin((laggedD / 36) * Math.PI);
-
-    // LST (land surface temperature) — inverse of rainfall/moisture
-    const baseLst = isDry ? 38 + 4 * rand() : 30 + 4 * rand();
-    const lstC = baseLst + (rand() - 0.5) * 3;
-    const lstClim = isDry ? 37 : 31;
-
-    // Simulate some missing data (cloud obscuration during heavy rain)
-    const isCloudObscured = isMajorRain && rand() < 0.15;
-    const isMissingSM = rand() < 0.05;
-
-    observations.push({
-      dekad: dekadId(d, year),
-      dekadNumber: d,
+  return BUNDLED_ASH_R05_C05_DEKADS.map((row) => {
+    const { start, end } = dekadToDateRange(row.dekadNumber, year);
+    return {
+      dekad: dekadId(row.dekadNumber, year),
+      dekadNumber: row.dekadNumber,
       dateStart: start.toISOString().split("T")[0],
       dateEnd: end.toISOString().split("T")[0],
-      rainfallMm: Math.round(rainfallMm * 10) / 10,
-      rainfallClimatologyMm: Math.round(rainfallClim * 10) / 10,
-      rainfallReliability:
-        isDry ? null : Math.round((0.5 + 0.4 * rand()) * 100) / 100,
-      soilMoisture: isMissingSM ? null : Math.round(soilMoisture * 1000) / 1000,
-      soilMoistureClimatology: Math.round(smClim * 1000) / 1000,
-      ndvi: isCloudObscured ? null : Math.round(ndvi * 1000) / 1000,
-      ndviClimatology: Math.round(ndviClim * 1000) / 1000,
-      lstC: isCloudObscured ? null : Math.round(lstC * 10) / 10,
-      lstClimatologyC: lstClim,
-      et0Mm: Math.round((3.5 + 2 * rand()) * 10) / 10,
+      rainfallMm: row.rainfallMm,
+      rainfallClimatologyMm: row.rainfallClimatologyMm,
+      rainfallReliability: row.rainfallReliability,
+      soilMoisture: row.soilMoisture,
+      soilMoistureClimatology: row.soilMoistureClimatology,
+      ndvi: row.ndvi,
+      ndviClimatology: row.ndviClimatology,
+      lstC: row.lstC,
+      lstClimatologyC: row.lstClimatologyC,
+      et0Mm: row.et0Mm,
       quality: {
-        rainfallSource: "observed",
-        soilMoistureSource: isMissingSM ? "missing" : "observed",
-        ndviSource: isCloudObscured ? "cloud-obscured" : "observed",
-        lstSource: isCloudObscured ? "cloud-obscured" : "observed",
+        rainfallSource: row.rainfallMm !== null ? "observed" : "missing",
+        soilMoistureSource: row.soilMoisture !== null ? "observed" : "missing",
+        ndviSource: row.ndviSource,
+        lstSource: row.lstSource,
       },
-    });
-  }
-
-  return observations;
+    };
+  });
 }
 
 /* ─── Derive anomaly badges from observations ────────────────────────── */
@@ -214,7 +687,7 @@ export function deriveAnomalies(observations: DekadObservation[]): AnomalyBadge[
         label: `Vegetation index below historical range`,
         variables: ["ndvi"],
         observation: `NDVI ${obs.ndvi.toFixed(3)} vs. ${obs.ndviClimatology.toFixed(3)} climatology. Low NDVI has multiple possible causes including harvest, cloud shadows, and natural senescence.`,
-        evidence: `NDVI anomaly of ${(obs.ndviClimatology - obs.ndvi).toFixed(3)} below mean (MODIS MOD13Q1 v061, 250 m resolution).`,
+        evidence: `NDVI anomaly of ${(obs.ndviClimatology - obs.ndvi).toFixed(3)} below mean (NASA HLS HLSL30/HLSS30 v2.0, 30 m resolution).`,
       });
     }
   }

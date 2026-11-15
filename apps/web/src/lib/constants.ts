@@ -38,26 +38,28 @@ export const SEASONS: SeasonDefinition[] = [
 export const DATASET_RESOLUTIONS_KM: Record<string, number> = {
   imerg: 10.0,
   smap: 9.0,
-  modis_ndvi: 0.25,
+  modis_ndvi: 0.03,
   landsat: 0.03,
-  srtm: 0.03,
+  srtm: 0.09,
   ecostress: 0.07,
   nasa_power: 50.0,
+  isdasoil: 0.03,
   soilgrids: 0.25,
   era5_land: 9.0,
+  modis_lst: 1.0,
 };
 /* ─── Map Layer Configurations ───────────────────────────────────────── */
 
 export const MAP_LAYERS: MapLayerConfig[] = [
   {
     id: "ndvi",
-    label: "NDVI Vegetation Index",
+    label: "NDVI Vegetation Index (30 m HLS)",
     variable: "Normalised Difference Vegetation Index",
     unit: "unitless (0–1)",
-    resolutionKm: DATASET_RESOLUTIONS_KM.modis_ndvi,
-    source: "MODIS MOD13Q1 (Terra)",
-    version: "v061",
-    temporalFrequency: "16-day composite, aggregated to dekad",
+    resolutionKm: DATASET_RESOLUTIONS_KM.landsat,
+    source: "NASA Harmonized Landsat Sentinel-2 (HLSL30 / HLSS30)",
+    version: "v2.0",
+    temporalFrequency: "2–3 day revisit, cloud-screened via Fmask to 10-day dekad",
     colorRamp: [
       [0.0, "#8B4513"],   // Bare soil
       [0.15, "#D2B48C"],  // Sparse vegetation

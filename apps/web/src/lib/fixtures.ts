@@ -3,8 +3,8 @@ import { generateIllustrativeDekads, deriveAnomalies, deriveBareFieldPeriods, ge
 import { DATASET_RESOLUTIONS_KM, SEASONS } from "@/lib/constants";
 import { assessScale } from "@/lib/constants";
 
-const FARM_AREA_HA = 42.5;
-const FARM_LABEL = "Ashanti Pilot Cell 1";
+const FARM_AREA_HA = 2.0;
+const FARM_LABEL = "Ejura-Sekyedumase · ASH_R05_C05";
 
 export const ILLUSTRATIVE_YEAR = 2025;
 
@@ -25,13 +25,13 @@ calendarFixtures.bareFieldPeriods = deriveBareFieldPeriods(calendarFixtures.obse
 const mapLayers: MapLayerConfig[] = [
   {
     id: "ndvi",
-    label: "NDVI Vegetation Index",
+    label: "NDVI Vegetation Index (30 m HLS)",
     variable: "Normalised Difference Vegetation Index",
     unit: "unitless (0–1)",
-    resolutionKm: DATASET_RESOLUTIONS_KM.modis_ndvi,
-    source: "NASA MODIS MOD13Q1 (Terra)",
-    version: "v061",
-    temporalFrequency: "16-day composite, aggregated to dekad",
+    resolutionKm: DATASET_RESOLUTIONS_KM.landsat,
+    source: "NASA Harmonized Landsat Sentinel-2 (HLSL30 / HLSS30)",
+    version: "v2.0",
+    temporalFrequency: "2–3 day revisit, cloud-screened via Fmask to 10-day dekad",
     colorRamp: [
       [0.0, "#8B4513"],
       [0.15, "#D2B48C"],
@@ -129,10 +129,11 @@ export const mapFixtures = {
 
 export const scaleHonestyFixtures = (farmAreaHa: number = FARM_AREA_HA) => {
   const datasets = [
-    { id: "ndvi", resolutionKm: DATASET_RESOLUTIONS_KM.modis_ndvi, source: "MODIS MOD13Q1", label: "NDVI (MODIS)" },
-    { id: "soil-moisture", resolutionKm: DATASET_RESOLUTIONS_KM.smap, source: "SMAP L3", label: "Soil Moisture (SMAP)" },
-    { id: "rainfall", resolutionKm: DATASET_RESOLUTIONS_KM.imerg, source: "GPM IMERG", label: "Rainfall (IMERG)" },
-    { id: "srtm", resolutionKm: DATASET_RESOLUTIONS_KM.srtm, source: "SRTM", label: "Terrain (SRTM)" },
+    { id: "ndvi", resolutionKm: DATASET_RESOLUTIONS_KM.landsat, source: "NASA HLS (L30/S30)", label: "NDVI (30 m HLS)" },
+    { id: "isdasoil", resolutionKm: DATASET_RESOLUTIONS_KM.isdasoil, source: "iSDAsoil v2", label: "Soil Chemistry (30 m iSDAsoil)" },
+    { id: "soil-moisture", resolutionKm: DATASET_RESOLUTIONS_KM.smap, source: "ERA5-Land / SMAP", label: "Soil Moisture (9 km)" },
+    { id: "rainfall", resolutionKm: DATASET_RESOLUTIONS_KM.imerg, source: "GPM IMERG / NASA POWER", label: "Rainfall (10–50 km)" },
+    { id: "srtm", resolutionKm: DATASET_RESOLUTIONS_KM.srtm, source: "Copernicus DEM GLO-90", label: "Terrain (90 m DEM)" },
   ];
 
   return datasets.map((d) => assessScale(d.id, d.resolutionKm, farmAreaHa));

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { INITIAL_OUTCOME_REPORTS, ROTATION_STRATEGIES } from "../constants/ashanti-pilot.ts";
+import { ROTATION_STRATEGIES } from "../constants/ashanti-pilot.ts";
 import {
   buildWhatsAppReplyForInbound,
   evaluateAfricasTalkingUssdText,
@@ -83,7 +83,43 @@ test("buildWhatsAppReplyForInbound parses cell & priority keywords", () => {
 });
 
 test("computeM8CalibrationPreview applies only eligible officer/expert reports", () => {
-  const out = computeM8CalibrationPreview(INITIAL_OUTCOME_REPORTS);
+  const sampleReports = [
+    {
+      outcome_id: "out-test-1",
+      decision_id: "dec-test-1",
+      cell_id: "ASH_R05_C05",
+      season_year: 2025,
+      season_name: "Minor" as const,
+      outcome_summary: "Unverified farmer report",
+      soil_cover_observed: "Good",
+      water_stress_observed: "Low",
+      pest_or_disease_notes: "None",
+      evidence_grade: "farmer_reported" as const,
+      graded_by_officer_id: null,
+      eligible_for_model_update: false,
+      created_at: "2025-11-13T09:15:00Z",
+      reviewed_at: null,
+      synced: true,
+    },
+    {
+      outcome_id: "out-test-2",
+      decision_id: "dec-test-2",
+      cell_id: "ASH_R04_C04",
+      season_year: 2025,
+      season_name: "Major" as const,
+      outcome_summary: "Officer-reviewed Mucuna mulch observation",
+      soil_cover_observed: "Dense surface residue maintained into Jan",
+      water_stress_observed: "None observed on plot",
+      pest_or_disease_notes: "Cleared 3 m perimeter firebreak",
+      evidence_grade: "officer_reviewed" as const,
+      graded_by_officer_id: "00000000-0000-0000-0000-000000000101",
+      eligible_for_model_update: true,
+      created_at: "2025-11-11T16:40:00Z",
+      reviewed_at: "2025-11-12T08:30:00Z",
+      synced: true,
+    },
+  ];
+  const out = computeM8CalibrationPreview(sampleReports);
   assert.equal(out.verifiedReportsApplied, 1);
   assert.equal(out.ignoredUnverifiedReports, 1);
   const stratB = out.strategies.find((s) => s.code === "strategy_b");

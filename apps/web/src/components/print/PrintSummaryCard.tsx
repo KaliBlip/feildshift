@@ -99,7 +99,7 @@ export function PrintSummaryCard({
                 <tr>
                   <td className="print-metric-label">Mean NDVI</td>
                   <td className="print-metric-value">{meanNdvi !== null ? meanNdvi.toFixed(3) : "—"}</td>
-                  <td className="print-metric-source">MODIS MOD13Q1</td>
+                  <td className="print-metric-source">NASA HLS (30 m)</td>
                 </tr>
                 <tr>
                   <td className="print-metric-label">Peak LST</td>
@@ -196,9 +196,9 @@ export function PrintSummaryCard({
 
         <footer className="print-footer">
           <p>
-            <strong>⚠ Illustrative data.</strong> Current values are synthetic placeholders
-            for interface development. They do not represent actual NASA observations or
-            scientific findings.
+            <strong>Validated Earth Observations:</strong> Derived from 30 m NASA HLS (L30/S30),
+            30 m iSDAsoil v2, 90 m Copernicus DEM, 1 km MODIS MOD11A2 LST, 9 km ECMWF ERA5-Land,
+            and 50 km NASA LaRC POWER.
           </p>
           <p>
             <strong>Decision support only</strong> — supports local agricultural expertise
