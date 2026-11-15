@@ -19,6 +19,7 @@ import {
   ASHANTI_PILOT_CELLS,
   ROTATION_STRATEGIES,
 } from "@/constants/ashanti-pilot";
+import { loadWebSession } from "@/lib/auth";
 import { computeM8CalibrationPreview, type M8CalibrationSummary } from "@/lib/m8-calibration";
 import { baseScores, rankProbabilities } from "@/lib/scoring";
 import {
@@ -92,6 +93,10 @@ export default function OfficerPortalPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const localSession = loadWebSession();
+    if (localSession) {
+      setRole(localSession.role);
+    }
     void Promise.all([listDecisionLogs(), listOutcomeReports()]).then(([d, o]) => {
       if (!cancelled) {
         setDecisions(d);
