@@ -34,7 +34,7 @@ export function GlossaryPopoverBar() {
               <button
                 type="button"
                 className="sf-glossary-trigger"
-                {...({ popovertarget: popoverId } as Record<string, string>)}
+                {...({ popoverTarget: popoverId } as Record<string, string>)}
               >
                 <Info size={14} aria-hidden="true" />
                 <span>{triggerLabel}</span>

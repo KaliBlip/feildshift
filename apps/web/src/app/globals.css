@@ -1,33 +1,42 @@
 @import "tailwindcss";
 
-/* ─── Design Tokens ───────────────────────────────────────────────────── */
+/* ─── Design Tokens (Roofi + Field Shift Brand Palette) ─────────────────── */
 :root {
   --bg:            #ffffff;
-  --fg:            #0e1a12;
-  --fg-muted:      #4a5e50;
-  --forest:        #1a3d28;
-  --forest-mid:    #275d38;
-  --forest-light:  #3a7a50;
-  --sage:          #8aab8e;
-  --sage-light:    #c8dbc9;
-  --sage-pale:     #eef4ee;
-  --blue-accent:   #2d5fa6;
-  --blue-light:    #ddeaf8;
-  --border:        #d8e5d9;
-  --surface:       #f7faf7;
-  --radius-card:   1.25rem;
+  --fg:            #171717;
+  --fg-muted:      #52525b;
+  --forest:        #171717;
+  --forest-mid:    #3670ff;
+  --forest-light:  #5b8bff;
+  --sage:          #3670ff;
+  --sage-light:    #e2e4e9;
+  --sage-pale:     #efefef;
+  --blue-accent:   #3670ff;
+  --blue-light:    #ebf1ff;
+  --gold:          #f9d601;
+  --gold-surface:  #fff9d6;
+  --gold-ink:      #7a6200;
+  --success:       #1fb26b;
+  --success-pale:  #eaf7ef;
+  --border:        #e2e4e9;
+  --surface:       #efefef;
+  --radius-card:   1.5rem;
+  --shadow-card:   0 6px 14px rgba(17, 24, 39, 0.06);
   --nav-h:         68px;
 }
 
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
   --font-mono: var(--font-geist-mono);
 }
 
-/* ─── Reset & Base ────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ─── Reset & Base (wrapped in @layer base so Tailwind utilities win) ──── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+}
 
 html {
   scroll-behavior: smooth;
@@ -39,11 +48,12 @@ body {
   color: var(--fg);
   font-family: var(--font-sans), system-ui, sans-serif;
   line-height: 1.6;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* ─── Typography Scale ────────────────────────────────────────────────── */
 .display-xl {
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
   font-size: clamp(2.75rem, 6vw, 5.25rem);
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -51,6 +61,7 @@ body {
 }
 
 .display-lg {
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
   font-size: clamp(2rem, 4vw, 3.5rem);
   font-weight: 700;
   letter-spacing: -0.025em;
@@ -58,6 +69,7 @@ body {
 }
 
 .display-md {
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
   font-size: clamp(1.5rem, 2.5vw, 2.25rem);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -718,16 +730,11 @@ body {
 }
 
 /* ─── Scroll Reveal Animations ────────────────────────────────────────── */
-.reveal {
-  opacity: 0;
-  transform: translateY(32px);
-  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
+.reveal,
 .reveal.visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 .reveal-delay-1 { transition-delay: 0.1s; }
@@ -2997,4 +3004,259 @@ dialog::backdrop {
   .criterion-row {
     grid-template-columns: minmax(0, 1fr) 4rem 2.5rem;
   }
+}
+
+/* ─── Glossary Popover, Glossary Directory & Scale-Honesty Banner ─────── */
+.glossary-tooltip {
+  width: min(340px, calc(100vw - 2rem));
+  background: #ffffff;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 16px 36px rgba(23, 23, 23, 0.16);
+}
+
+.glossary-tooltip .tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.glossary-tooltip .tooltip-close {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.glossary-tooltip .tooltip-definition {
+  font-size: 0.84rem;
+  color: var(--fg);
+  margin-bottom: 0.4rem;
+}
+
+.glossary-tooltip .tooltip-why {
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+}
+
+.glossary {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.glossary .glossary-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.glossary .glossary-header h3 {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.glossary input.glossary-search {
+  width: min(300px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.glossary .glossary-list ul {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.glossary .glossary-term-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.glossary .glossary-term-btn:hover,
+.glossary .glossary-term-btn.active {
+  border-color: var(--blue-accent);
+  background: var(--blue-light);
+}
+
+.glossary .glossary-term-btn .term-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.glossary .glossary-term-btn .term-preview {
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+.glossary .glossary-detail {
+  background: var(--blue-light);
+  border: 1px solid var(--blue-accent);
+  border-radius: 16px;
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.scale-honesty-banner {
+  margin-top: 1.5rem;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.scale-honesty-banner .banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+}
+
+.scale-honesty-banner .banner-title {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.scale-honesty-banner .banner-subtitle {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+
+.scale-honesty-banner .banner-assessments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.9rem;
+}
+
+.scale-assessment-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.scale-assessment-card .card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.scale-assessment-card .card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.scale-assessment-card .card-resolution {
+  font-size: 0.72rem;
+  font-family: var(--font-mono), monospace;
+  color: var(--fg-muted);
+}
+
+.scale-assessment-card .detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+.scale-assessment-card .detail-value {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.scale-comparison-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.scale-comparison-visual .comparison-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.scale-comparison-visual .bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  min-width: fit-content;
+}
+
+.scale-comparison-visual .bar.farm {
+  background: var(--blue-light);
+  color: #1e4ce0;
+}
+
+.scale-comparison-visual .bar.pixel {
+  background: var(--gold-surface);
+  color: var(--gold-ink);
+}
+
+.scale-fit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
 }

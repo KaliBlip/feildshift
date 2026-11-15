@@ -3,11 +3,23 @@ import localFont from "next/font/local";
 import { I18nProvider } from "@/components/I18nProvider";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "../../public/geist-latin.woff2",
-  variable: "--font-geist-sans",
+const oliveDisplay = localFont({
+  src: [
+    { path: "../../public/fonts/OliveDisplay-Medium.ttf", weight: "500", style: "normal" },
+    { path: "../../public/fonts/OliveDisplay-Bold.ttf", weight: "700", style: "normal" },
+  ],
+  variable: "--font-display",
   display: "swap",
-  weight: "100 900",
+});
+
+const suncoastGrot = localFont({
+  src: [
+    { path: "../../public/fonts/SuncoastGrot-Medium.ttf", weight: "500", style: "normal" },
+    { path: "../../public/fonts/SuncoastGrot-Bold.ttf", weight: "700", style: "normal" },
+    { path: "../../public/fonts/SuncoastGrot-Black.ttf", weight: "900", style: "normal" },
+  ],
+  variable: "--font-sans",
+  display: "swap",
 });
 
 const geistMono = localFont({
@@ -41,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${oliveDisplay.variable} ${suncoastGrot.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <I18nProvider>{children}</I18nProvider>

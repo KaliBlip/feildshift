@@ -10,15 +10,15 @@ import { useAppShell } from "@/components/I18nProvider";
 function LogoMark({ size = 30 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect width="32" height="32" rx="8" fill="#1a3d28" />
+      <rect width="32" height="32" rx="8" fill="#171717" />
       <path
         d="M10 11.5 C10 9.567 11.567 8 13.5 8 L19 8 C20.657 8 22 9.343 22 11 C22 12.657 20.657 14 19 14 L13 14 C11.343 14 10 15.343 10 17 C10 18.657 11.343 20 13 20 L19.5 20 C21.433 20 23 21.567 23 23.5"
-        stroke="#8aab8e"
+        stroke="#3670FF"
         strokeWidth="2.5"
         strokeLinecap="round"
       />
-      <circle cx="10" cy="11.5" r="1.5" fill="#8aab8e" />
-      <circle cx="23" cy="23.5" r="1.5" fill="#8aab8e" />
+      <circle cx="10" cy="11.5" r="1.5" fill="#F9D601" />
+      <circle cx="23" cy="23.5" r="1.5" fill="#F9D601" />
     </svg>
   );
 }
@@ -81,7 +81,7 @@ export function AppNav() {
             title={pendingCount > 0 ? "Flush offline queue" : undefined}
           >
             {isOnline ? <Wifi size={14} aria-hidden="true" /> : <WifiOff size={14} aria-hidden="true" />}
-            <span>
+            <span className="hidden sm:inline">
               {pendingCount > 0
                 ? t("pendingQueue", { count: pendingCount })
                 : isOnline
@@ -90,6 +90,13 @@ export function AppNav() {
             </span>
             {pendingCount > 0 && <RefreshCw size={12} aria-hidden="true" />}
           </button>
+
+          <Link
+            href="/login"
+            className="shrink-0 whitespace-nowrap rounded-full bg-[#171717] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#3670FF]"
+          >
+            PIN Sign In
+          </Link>
 
           <div className="sf-lang-switch" role="group" aria-label={t("languageLabel")}>
             <Globe size={14} aria-hidden="true" className="sf-lang-icon" />

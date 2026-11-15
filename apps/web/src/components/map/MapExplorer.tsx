@@ -1,10 +1,16 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import MapGL, { Layer, Source } from "react-map-gl/maplibre";
 import type { MapLayerMouseEvent, MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import * as maplibregl from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
+import { isWebGL2Supported } from "@/lib/webgl";
+
+if (typeof window !== "undefined") {
+  maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
+}
 import type {
   LayerControlProps,
   MapExplorerProps,
@@ -17,92 +23,45 @@ import type { MapLayerId } from "@/lib/types";
 
 const MAP_STYLE: StyleSpecification = {
   version: 8,
-  sources: {},
+  sources: {
+    "osm-tiles": {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
   layers: [
     {
-      id: "background",
-      type: "background",
-      paint: { "background-color": "#F7FAF7" },
+      id: "osm-basemap",
+      type: "raster",
+      source: "osm-tiles",
+      paint: {
+        "raster-opacity": 0.9,
+      },
     },
   ],
 };
 
-const LAYER_STYLES: Record<MapLayerId, { paint: Record<string, unknown>; layout?: Record<string, unknown> }> = {
-  ndvi: {
-    paint: {
-      "raster-opacity": 0.8,
-      "raster-color-ramp": [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        0.0, "#8B4513",
-        0.15, "#D2B48C",
-        0.3, "#F5DEB3",
-        0.45, "#90EE90",
-        0.6, "#228B22",
-        0.8, "#006400",
-        1.0, "#003300",
-      ],
-    },
-  },
-  "soil-moisture": {
-    paint: {
-      "raster-opacity": 0.8,
-      "raster-color-ramp": [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        0.05, "#8B0000",
-        0.10, "#CD853F",
-        0.20, "#DAA520",
-        0.30, "#4682B4",
-        0.40, "#4169E1",
-        0.50, "#00008B",
-      ],
-    },
-  },
-  rainfall: {
-    paint: {
-      "raster-opacity": 0.8,
-      "raster-color-ramp": [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        0, "#FFF5E6",
-        10, "#FED976",
-        25, "#FEB24C",
-        50, "#FD8D3C",
-        75, "#FC4E2A",
-        100, "#E31A1C",
-        150, "#800026",
-      ],
-    },
-  },
-  srtm: {
-    paint: {
-      "raster-opacity": 0.7,
-      "raster-color-ramp": [
-        "interpolate",
-        ["linear"],
-        ["get", "value"],
-        100, "#006837",
-        200, "#31A354",
-        300, "#78C679",
-        400, "#C2E699",
-        500, "#FFFFCC",
-        600, "#FED976",
-        700, "#FD8D3C",
-        800, "#E31A1C",
-      ],
-    },
-  },
+const LAYER_FILL_COLORS: Record<MapLayerId, string> = {
+  ndvi: "#1FB26B",
+  "soil-moisture": "#3670FF",
+  rainfall: "#2458DB",
+  srtm: "#F9D601",
 };
 
-const TILE_URLS: Record<MapLayerId, string> = {
-  ndvi: "https://tiles.example.com/ndvi/{z}/{x}/{y}.pbf",
-  "soil-moisture": "https://tiles.example.com/smap/{z}/{x}/{y}.pbf",
-  rainfall: "https://tiles.example.com/imerg/{z}/{x}/{y}.pbf",
-  srtm: "https://tiles.example.com/srtm/{z}/{x}/{y}.pbf",
+const ASHANTI_CELL_GRID_GEOJSON = {
+  type: "FeatureCollection" as const,
+  features: [
+    {
+      type: "Feature" as const,
+      properties: { cell_id: "ASH_R05_C05", value: 0.62 },
+      geometry: {
+        type: "Polygon" as const,
+        coordinates: [[[-1.46, 6.84], [-1.39, 6.84], [-1.39, 6.91], [-1.46, 6.91], [-1.46, 6.84]]],
+      },
+    },
+  ],
 };
 
 const ATTRIBUTIONS: Record<MapLayerId, string> = {
@@ -137,6 +96,12 @@ export function MapExplorer({
   const [viewport, setViewport] = useState({ longitude: center[0], latitude: center[1], zoom });
   const [hoveredValue, setHoveredValue] = useState<{ layer: MapLayerId; value: number | null; coordinates: [number, number] } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [webgl2Supported, setWebgl2Supported] = useState<boolean | null>(null);
+  const [mapRuntimeError, setMapRuntimeError] = useState(false);
+
+  useEffect(() => {
+    setWebgl2Supported(isWebGL2Supported());
+  }, []);
 
   const handleViewportChange = useCallback(
     (event: ViewStateChangeEvent) => {
@@ -180,7 +145,7 @@ export function MapExplorer({
     setShowInfoPanel(false);
   }, []);
 
-  if (loadingState === "loading") {
+  if (loadingState === "loading" || webgl2Supported === null) {
     return (
       <div className="map-explorer loading" style={{ height: "600px", position: "relative" }}>
         <div className="map-loading-overlay" role="status" aria-live="polite">
@@ -202,6 +167,160 @@ export function MapExplorer({
     );
   }
 
+  const useFallbackMap = !webgl2Supported || mapRuntimeError;
+
+  const controlsOverlay = (
+    <div className="map-controls" style={{ pointerEvents: "none" }}>
+      <div className="control-group top-left" style={{ pointerEvents: "auto" }}>
+        <LayerControl
+          layers={layers}
+          enabledLayers={enabledLayers}
+          onToggle={onLayerToggle}
+          loadingState={loadingState}
+        />
+      </div>
+
+      <div className="control-group bottom-center" style={{ pointerEvents: "auto" }}>
+        <TimeScrubber
+          timeSteps={timeSteps}
+          selectedTimeStep={selectedTimeStep}
+          onTimeChange={onTimeChange}
+          playing={false}
+          onPlayToggle={() => {}}
+          onStep={() => {}}
+          loadingState={loadingState}
+        />
+      </div>
+
+      <div className="control-group top-right" style={{ pointerEvents: "auto" }}>
+        <ViewportControls
+          zoom={Math.round(viewport.zoom)}
+          onZoomIn={() => {
+            if (useFallbackMap) {
+              setViewport((prev) => ({ ...prev, zoom: Math.min(18, prev.zoom + 1) }));
+              return;
+            }
+            mapRef.current?.zoomIn();
+          }}
+          onZoomOut={() => {
+            if (useFallbackMap) {
+              setViewport((prev) => ({ ...prev, zoom: Math.max(4, prev.zoom - 1) }));
+              return;
+            }
+            mapRef.current?.zoomOut();
+          }}
+          onResetView={() => {
+            if (useFallbackMap) {
+              setViewport({ longitude: center[0], latitude: center[1], zoom: 10 });
+              return;
+            }
+            mapRef.current?.flyTo({ center, zoom: 10, essential: true });
+          }}
+        />
+      </div>
+
+      {showInfoPanel && hoveredValue && (
+        <div className="control-group info-panel" style={{ pointerEvents: "auto" }}>
+          <MapInfoPanel
+            layer={layers.find((l) => l.id === hoveredValue.layer) || null}
+            timeStep={selectedTimeStep}
+            coordinates={hoveredValue.coordinates}
+            value={hoveredValue.value}
+            farmAreaHa={farmAreaHa}
+          />
+        </div>
+      )}
+
+      <div className="control-group bottom-left" style={{ pointerEvents: "auto" }}>
+        <MapLegend
+          layer={layers.find((l) => l.id === enabledLayers[0]) || null}
+          timeStep={selectedTimeStep}
+          visible={enabledLayers.length > 0}
+        />
+      </div>
+    </div>
+  );
+
+  if (useFallbackMap) {
+    const activeLayer = enabledLayers[0] ?? "ndvi";
+    return (
+      <div className="map-explorer" style={{ height: "600px", position: "relative", background: "#0E1A12", overflow: "hidden" }}>
+        <svg
+          viewBox="0 0 800 600"
+          role="img"
+          aria-label="2D vector map fallback for Ashanti Region pilot grid"
+          style={{ width: "100%", height: "100%", display: "block" }}
+          onMouseLeave={handleMouseLeave}
+        >
+          <defs>
+            <pattern id="ashanti-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(138, 171, 142, 0.14)" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="800" height="600" fill="#0E1A12" />
+          <rect width="800" height="600" fill="url(#ashanti-grid)" />
+          <g
+            onMouseEnter={() => {
+              if (enabledLayers.length > 0) {
+                setHoveredValue({
+                  layer: activeLayer,
+                  value: 0.62,
+                  coordinates: [center[0], center[1]],
+                });
+                setShowInfoPanel(true);
+              }
+            }}
+            style={{ cursor: "pointer" }}
+          >
+            {enabledLayers.map((layerId, idx) => (
+              <rect
+                key={layerId}
+                x={310 + idx * 4}
+                y={220 + idx * 4}
+                width="180"
+                height="160"
+                rx="8"
+                fill={LAYER_FILL_COLORS[layerId] ?? "#3670FF"}
+                fillOpacity={0.28}
+                stroke="#8AAB8E"
+                strokeWidth="1.5"
+              />
+            ))}
+            {farmBoundary && (
+              <polygon
+                points="355,260 445,268 438,340 362,332"
+                fill="rgba(31, 178, 107, 0.16)"
+                stroke="#F5F2EB"
+                strokeWidth="2.5"
+                strokeDasharray="8 4"
+              />
+            )}
+            <text x="400" y="305" textAnchor="middle" fill="#F5F2EB" fontSize="13" fontWeight="600">
+              ASH_R05_C05 · {center[1].toFixed(2)}°N, {Math.abs(center[0]).toFixed(2)}°W
+            </text>
+          </g>
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            right: "12px",
+            bottom: "12px",
+            background: "rgba(23, 23, 23, 0.85)",
+            color: "#F5F2EB",
+            padding: "6px 10px",
+            borderRadius: "999px",
+            fontSize: "12px",
+            border: "1px solid rgba(138, 171, 142, 0.35)",
+            pointerEvents: "none",
+          }}
+        >
+          2D Vector Fallback (WebGL2 unavailable)
+        </div>
+        {controlsOverlay}
+      </div>
+    );
+  }
+
   return (
     <div className="map-explorer" style={{ height: "600px", position: "relative" }}>
       <MapGL
@@ -210,6 +329,7 @@ export function MapExplorer({
         onMove={handleViewportChange}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onError={() => setMapRuntimeError(true)}
         mapStyle={MAP_STYLE}
         attributionControl={false}
         style={{ width: "100%", height: "100%" }}
@@ -233,71 +353,21 @@ export function MapExplorer({
           if (!layerConfig) return null;
 
           return (
-            <Source key={layerId} type="raster" url={TILE_URLS[layerId]} tileSize={256}>
+            <Source key={layerId} id={`src-${layerId}`} type="geojson" data={ASHANTI_CELL_GRID_GEOJSON}>
               <Layer
                 id={layerId}
-                type="raster"
-                source={layerId}
-                paint={LAYER_STYLES[layerId].paint}
-                layout={LAYER_STYLES[layerId].layout}
+                type="fill"
+                paint={{
+                  "fill-color": LAYER_FILL_COLORS[layerId] ?? "#3670FF",
+                  "fill-opacity": 0.28,
+                  "fill-outline-color": "#171717",
+                }}
               />
             </Source>
           );
         })}
 
-        <div className="map-controls" style={{ pointerEvents: "none" }}>
-          <div className="control-group top-left" style={{ pointerEvents: "auto" }}>
-            <LayerControl
-              layers={layers}
-              enabledLayers={enabledLayers}
-              onToggle={onLayerToggle}
-              loadingState={loadingState}
-            />
-          </div>
-
-          <div className="control-group bottom-center" style={{ pointerEvents: "auto" }}>
-            <TimeScrubber
-              timeSteps={timeSteps}
-              selectedTimeStep={selectedTimeStep}
-              onTimeChange={onTimeChange}
-              playing={false}
-              onPlayToggle={() => {}}
-              onStep={() => {}}
-              loadingState={loadingState}
-            />
-          </div>
-
-          <div className="control-group top-right" style={{ pointerEvents: "auto" }}>
-            <ViewportControls
-              zoom={Math.round(viewport.zoom)}
-              onZoomIn={() => mapRef.current?.zoomIn()}
-              onZoomOut={() => mapRef.current?.zoomOut()}
-              onResetView={() => {
-                mapRef.current?.flyTo({ center, zoom: 10, essential: true });
-              }}
-            />
-          </div>
-
-          {showInfoPanel && hoveredValue && (
-            <div className="control-group info-panel" style={{ pointerEvents: "auto" }}>
-              <MapInfoPanel
-                layer={layers.find((l) => l.id === hoveredValue.layer) || null}
-                timeStep={selectedTimeStep}
-                coordinates={hoveredValue.coordinates}
-                value={hoveredValue.value}
-                farmAreaHa={farmAreaHa}
-              />
-            </div>
-          )}
-
-          <div className="control-group bottom-left" style={{ pointerEvents: "auto" }}>
-            <MapLegend
-              layer={layers.find((l) => l.id === enabledLayers[0]) || null}
-              timeStep={selectedTimeStep}
-              visible={enabledLayers.length > 0}
-            />
-          </div>
-        </div>
+        {controlsOverlay}
       </MapGL>
     </div>
   );

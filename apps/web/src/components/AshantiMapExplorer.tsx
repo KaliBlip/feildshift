@@ -11,6 +11,7 @@ import {
   SEASON_FEATURES_BY_CELL,
 } from "@/constants/ashanti-pilot";
 import type { PilotCell } from "@/types/database";
+import { isWebGL2Supported } from "@/lib/webgl";
 
 export type MapLayerId = "bare" | "moisture" | "slope" | "rain";
 
@@ -115,26 +116,13 @@ export function AshantiMapExplorer({
       return;
     }
 
-    let canvasSupported = true;
-    try {
-      const testCanvas = document.createElement("canvas");
-      const gl =
-        testCanvas.getContext("webgl2") ||
-        testCanvas.getContext("webgl") ||
-        testCanvas.getContext("experimental-webgl");
-      if (!gl) {
-        canvasSupported = false;
-      }
-    } catch {
-      canvasSupported = false;
-    }
-
-    if (!canvasSupported) {
+    if (!isWebGL2Supported()) {
       void Promise.resolve().then(() => setMapError(true));
       return;
     }
 
     try {
+      maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
       const map = new maplibregl.Map({
         container,
         center: [-1.425, 6.875],

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowRight, Brain, Compass, Leaf, Satellite, ShieldCheck, Smartphone } from "lucide-react";
@@ -79,21 +79,8 @@ function FarmlandArt() {
 
 /* ─── Challenge ─────────────────────────────────────────────────────── */
 function Challenge() {
-  const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const els = ref.current?.querySelectorAll(".reveal");
-    if (!els) return;
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("visible")),
-      { threshold: 0.15, rootMargin: "0px 0px -60px 0px" }
-    );
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section className="challenge section" id="about" ref={ref} aria-labelledby="challenge-heading">
+    <section className="challenge section" id="about" aria-labelledby="challenge-heading">
       <div className="container">
         <div className="challenge-inner">
           <div>
@@ -490,6 +477,35 @@ export default function LandingPage() {
         <MapExplorerSection />
         <GlossarySection />
       </main>
+
+      <footer className="border-t border-[#E2E4E9] bg-[#171717] py-12 text-[#EFEFEF]">
+        <div className="container flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <p className="font-display text-lg font-bold text-white">
+              ScalarField · Field Shift
+            </p>
+            <p className="max-w-md text-xs text-[#B4B6BE]">
+              Evidence-graded crop-rotation decision support for Ashanti, Ghana,
+              powered by global NASA Earth observations and local MoFA/CSIR-CRI
+              expertise.
+            </p>
+          </div>
+          <nav aria-label="Footer navigation" className="flex flex-wrap gap-4 text-xs font-semibold">
+            <Link href="/workspace" className="text-[#EFEFEF] hover:text-[#F9D601]">
+              Decision Studio
+            </Link>
+            <Link href="/officer" className="text-[#EFEFEF] hover:text-[#F9D601]">
+              Officer Portal
+            </Link>
+            <Link href="/sms-ussd" className="text-[#EFEFEF] hover:text-[#F9D601]">
+              SMS / USSD
+            </Link>
+            <Link href="/login" className="text-[#F9D601] hover:underline">
+              PIN Sign In
+            </Link>
+          </nav>
+        </div>
+      </footer>
     </>
   );
 }
