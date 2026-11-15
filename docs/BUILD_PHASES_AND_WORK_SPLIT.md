@@ -94,7 +94,8 @@
 
 ### Phase 6 — Scientific Advancements & Post-Hackathon Scale-Out 🟡 Core M8 Done
 
-- [x] **`kaliblip`:** Implement lightweight conjugate Bayesian outcome calibration (**M8**, `pipeline/src/fieldshift/models/feedback.py`, governance-gated strictly to `officer_reviewed`/`expert_validated` grades) and mobile field outcome reporting (`apps/mobile/src/app/passport.tsx`).
+- [x] **`kaliblip`:** Implement lightweight conjugate Bayesian outcome calibration (**M8**, `pipeline/src/fieldshift/models/feedback.py`, governance-gated strictly to `officer_reviewed`/`expert_validated` grades) and mobile field outcome reporting (`apps/mobile/src/app/(tabs)/passport.tsx`).
+- [x] **`kaliblip`:** Add multi-cell offline district pack prefetch (`prefetchDistrictPack`), on-device Skia plot vision classifier (**M9**, `apps/mobile/src/lib/vision-classifier.ts`), phone + 4-digit PIN auth screens (`apps/mobile/src/app/login.tsx`, `apps/web/src/app/login/page.tsx`), `stress_test_basic.json` parity vector, and GitHub Actions CI (`.github/workflows/ci.yml`).
 - [ ] **`kaliblip`:** Expand `pipeline/config/` to additional Ghanaian/West African regions and build native EAS mobile distribution.
 - [x] **`OdinID-CS`:** Integrate live **Africa's Talking** SMS/USSD and WhatsApp Business APIs alongside officer-review dashboard routes (`apps/web/src/app/api/ussd/route.ts`, `apps/web/src/app/api/whatsapp/webhook/route.ts`, `apps/web/src/app/api/messaging/dispatch/route.ts`, `apps/web/src/app/api/officer/review/route.ts`, `apps/web/src/lib/comms.ts`, `apps/web/src/lib/m8-calibration.ts`, wired into `/sms-ussd` and `/officer` with sandbox/simulated fallback).
 
@@ -107,7 +108,8 @@
    - `kaliblip` works on branch `kaliblip` → PR into `main`.
    - `OdinID-CS` works on branch `OdinID` (or feature branches from `main`) → PR into `main`.
    - Pull `main` before starting each new phase to stay synced on Supabase schema migrations and shared test vectors.
-3. **Cross-platform parity check before merging scoring changes:**
-   - Python: `.venv/bin/pytest -v apps/api/tests/test_scoring.py`
-   - Web: `npm --prefix apps/web test`
-   - Mobile: `npm --prefix apps/mobile test`
+3. **Cross-platform parity check before merging scoring changes (automated in `.github/workflows/ci.yml`):**
+   - Pipeline: `PYTHONPATH=pipeline/src:apps/api .venv/bin/pytest pipeline/tests`
+   - API: `.venv/bin/pytest -v apps/api/tests/test_scoring.py`
+   - Web: `(cd apps/web && npx next typegen && npx tsc --noEmit && npm test)`
+   - Mobile: `./apps/mobile/node_modules/.bin/tsc -p apps/mobile/tsconfig.json --noEmit && npm --prefix apps/mobile test`
