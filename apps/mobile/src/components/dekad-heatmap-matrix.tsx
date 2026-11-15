@@ -4,13 +4,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import type { DekadWindowSummary } from '@/constants/pilot-data';
-import { CardShadow, Radii, Spacing } from '@/constants/theme';
+import { CardShadow, roofiRadii, roofiSpacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
  * 12 months x 3 dekads = 36-dekad visual vulnerability & bare-field heatmap.
- * Tapping any month selects it in an inline inspector card so farmers can spot
- * Harmattan bare-soil exposure and monsoon cloud gaps at a glance.
+ * Styled to match Autis Planner's MiniMonthCalendar card language.
  */
 export function DekadHeatmapMatrix({
   windows,
@@ -32,27 +31,33 @@ export function DekadHeatmapMatrix({
       ]}>
       <View style={styles.headerRow}>
         <ThemedText type="sectionTitle">36-Dekad Exposure Matrix</ThemedText>
-        <ThemedText type="code" themeColor="textMuted">
-          12 mos × 3 dekads
+        <ThemedText type="code" themeColor="mutedText">
+          12 MOS × 3 DEKADS
         </ThemedText>
       </View>
 
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
-          <View style={[styles.swatch, { backgroundColor: theme.primary }]} />
-          <ThemedText type="code" themeColor="textSecondary">
+          <View
+            style={[styles.swatch, { backgroundColor: theme.sage.edge }]}
+          />
+          <ThemedText type="code" themeColor="secondary">
             Cover OK
           </ThemedText>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.swatch, { backgroundColor: theme.amber }]} />
-          <ThemedText type="code" themeColor="textSecondary">
+          <View
+            style={[styles.swatch, { backgroundColor: theme.primary }]}
+          />
+          <ThemedText type="code" themeColor="secondary">
             Bare risk
           </ThemedText>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.swatch, { backgroundColor: theme.blue }]} />
-          <ThemedText type="code" themeColor="textSecondary">
+          <View
+            style={[styles.swatch, { backgroundColor: theme.pair.edge }]}
+          />
+          <ThemedText type="code" themeColor="secondary">
             Cloud QA gap
           </ThemedText>
         </View>
@@ -63,25 +68,28 @@ export function DekadHeatmapMatrix({
           const isSelected = win.id === selectedId;
           const isCloudGap = win.qaTier === 'low_cloud_gap';
           const cellBg = win.bareFieldRisk
-            ? theme.amberSoft
+            ? theme.personal.surface
             : win.ndviSmooth >= 0.55
-              ? theme.primarySoft
-              : theme.backgroundElement;
+              ? theme.sage.surface
+              : theme.surfaceSubtle;
           const cellFg = win.bareFieldRisk
-            ? theme.amber
+            ? theme.personal.ink
             : win.ndviSmooth >= 0.55
-              ? theme.primaryText
-              : theme.textSecondary;
+              ? theme.sage.ink
+              : theme.secondary;
 
           return (
             <Pressable
               key={win.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               accessibilityLabel={`${win.monthLabel} dekad matrix column`}
               onPress={() => setSelectedId(win.id)}
               style={[
                 styles.monthCol,
                 {
-                  borderColor: isSelected ? theme.text : theme.border,
+                  borderColor: isSelected ? theme.foreground : theme.border,
+                  borderWidth: isSelected ? 1.5 : 1,
                   backgroundColor: cellBg,
                 },
               ]}>
@@ -89,12 +97,11 @@ export function DekadHeatmapMatrix({
                 {win.monthLabel}
               </ThemedText>
               {[0, 1, 2].map((d) => {
-                // Slight progressive transition per dekad across onset/cessation
                 const stepTint = win.bareFieldRisk
-                  ? theme.amber
+                  ? theme.primary
                   : win.ndviSmooth >= 0.48 || (win.id === 'mar' && d === 2)
-                    ? theme.primary
-                    : theme.textMuted;
+                    ? theme.sage.edge
+                    : theme.mutedText;
                 return (
                   <View
                     key={`${win.id}-d${d}`}
@@ -102,14 +109,21 @@ export function DekadHeatmapMatrix({
                       styles.dekadTile,
                       {
                         backgroundColor: stepTint,
-                        opacity: win.bareFieldRisk ? 0.85 : 0.45 + win.ndviSmooth * 0.55,
+                        opacity: win.bareFieldRisk
+                          ? 0.88
+                          : 0.45 + win.ndviSmooth * 0.55,
                       },
                     ]}
                   />
                 );
               })}
               {isCloudGap && (
-                <View style={[styles.cloudDot, { backgroundColor: theme.blue }]} />
+                <View
+                  style={[
+                    styles.cloudDot,
+                    { backgroundColor: theme.pair.edge },
+                  ]}
+                />
               )}
             </Pressable>
           );
@@ -121,27 +135,34 @@ export function DekadHeatmapMatrix({
           style={[
             styles.inspector,
             {
-              backgroundColor: theme.backgroundElement,
+              backgroundColor: theme.surfaceSubtle,
               borderColor: theme.border,
             },
           ]}>
           <View style={styles.inspectorHeader}>
             <View style={styles.titleIconRow}>
               {selectedWindow.bareFieldRisk ? (
-                <Sun size={15} color={theme.amber} />
+                <Sun size={15} color={theme.primary} />
               ) : (
-                <CloudRain size={15} color={theme.primaryText} />
+                <CloudRain size={15} color={theme.sage.ink} />
               )}
               <ThemedText type="smallBold">
                 {selectedWindow.monthLabel} ({selectedWindow.dekadRange}) ·{' '}
                 {selectedWindow.seasonLabel}
               </ThemedText>
             </View>
-            <ThemedText type="code" style={{ color: selectedWindow.bareFieldRisk ? theme.amber : theme.primaryText }}>
-              NDVI {selectedWindow.ndviSmooth.toFixed(2)} · {selectedWindow.rainMm} mm
+            <ThemedText
+              type="code"
+              style={{
+                color: selectedWindow.bareFieldRisk
+                  ? theme.personal.ink
+                  : theme.sage.ink,
+              }}>
+              NDVI {selectedWindow.ndviSmooth.toFixed(2)} ·{' '}
+              {selectedWindow.rainMm} mm
             </ThemedText>
           </View>
-          <ThemedText type="small" themeColor="textSecondary">
+          <ThemedText type="small" themeColor="secondary">
             {selectedWindow.summaryNote}
           </ThemedText>
         </View>
@@ -152,10 +173,10 @@ export function DekadHeatmapMatrix({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
-    gap: 10,
+    padding: roofiSpacing[4],
+    gap: 12,
   },
   headerRow: {
     flexDirection: 'row',
@@ -170,12 +191,12 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
   },
   swatch: {
     width: 10,
     height: 10,
-    borderRadius: 3,
+    borderRadius: 5,
   },
   gridRow: {
     flexDirection: 'row',
@@ -184,9 +205,8 @@ const styles = StyleSheet.create({
   },
   monthCol: {
     flex: 1,
-    borderRadius: Radii.xs,
-    borderWidth: 1,
-    paddingVertical: 4,
+    borderRadius: roofiRadii.md,
+    paddingVertical: 5,
     paddingHorizontal: 2,
     alignItems: 'center',
     gap: 3,
@@ -195,7 +215,7 @@ const styles = StyleSheet.create({
   dekadTile: {
     width: '100%',
     height: 11,
-    borderRadius: 2,
+    borderRadius: 3,
   },
   cloudDot: {
     position: 'absolute',
@@ -206,9 +226,9 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   inspector: {
-    borderRadius: Radii.md,
+    borderRadius: roofiRadii.xl,
     borderWidth: 1,
-    padding: 10,
+    padding: 12,
     gap: 4,
   },
   inspectorHeader: {

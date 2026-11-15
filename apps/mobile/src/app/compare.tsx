@@ -13,6 +13,7 @@ import {
 import { SmsShareModal } from '@/components/sms-share-modal';
 import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
+import { Button, Label } from '@/components/ui';
 import {
   PRIORITY_PRESETS,
   SCORING_CRITERIA,
@@ -21,8 +22,8 @@ import {
   BottomTabInset,
   CardShadow,
   MaxContentWidth,
-  Radii,
-  Spacing,
+  roofiRadii,
+  roofiSpacing,
 } from '@/constants/theme';
 import { usePilotState } from '@/hooks/use-pilot-state';
 import { useTheme } from '@/hooks/use-theme';
@@ -37,6 +38,7 @@ import {
   computeMinimaxRegretRankings,
   type ClimateStressId,
 } from '@/lib/stress';
+import { toast } from '@/lib/toast';
 
 const PRESET_PILL_OPTIONS = PRIORITY_PRESETS.map((p) => ({
   id: p.id,
@@ -87,7 +89,11 @@ export default function CompareScreen() {
     runs: 2000,
     seed: 42,
   });
-  const minimax = computeMinimaxRegretRankings(strategies, [...weights], baseScores);
+  const minimax = computeMinimaxRegretRankings(
+    strategies,
+    [...weights],
+    baseScores,
+  );
 
   const activeScenario =
     CLIMATE_STRESS_SCENARIOS.find((item) => item.id === stressId) ??
@@ -97,7 +103,7 @@ export default function CompareScreen() {
       ? 'Live Supabase'
       : dataSourceMode === 'cached'
         ? 'Offline Cache'
-        : 'Ashanti Fixture';
+        : 'Ashanti Bundle';
 
   const weightSum = weights.reduce((acc, w) => acc + w, 0);
   const rankedIndices = strategies
@@ -109,6 +115,22 @@ export default function CompareScreen() {
     if (preset) {
       setActivePresetId(id);
       applyPreset(preset.weights);
+      toast.info(
+        `Preset: ${preset.label}`,
+        'Recalculated MCDA scores & 2,000-run Dirichlet rank stability.',
+      );
+    }
+  };
+
+  const handleSelectStress = (id: ClimateStressId) => {
+    setStressId(id);
+    const scenario = CLIMATE_STRESS_SCENARIOS.find((s) => s.id === id);
+    if (scenario) {
+      if (id === 'baseline') {
+        toast.info('Baseline restored', scenario.label);
+      } else {
+        toast.warning(`Stress test: ${scenario.shortLabel}`, scenario.label);
+      }
     }
   };
 
@@ -130,7 +152,10 @@ export default function CompareScreen() {
     setSmsPreview({ strategyName: strategy.name, message });
   };
 
-  const handleLogDecision = async (strategyCode: string, strategyName: string) => {
+  const handleLogDecision = async (
+    strategyCode: string,
+    strategyName: string,
+  ) => {
     const baseScoreMap: Record<string, number> = {};
     const rankProbMap: Record<string, number> = {};
     strategies.forEach((s, idx) => {
@@ -148,6 +173,17 @@ export default function CompareScreen() {
         ? `Logged ${strategyName} to Supabase decision log.`
         : `Saved ${strategyName} offline (${res.queuedCount} queued to sync).`,
     );
+    if (res.status === 'submitted') {
+      toast.success(
+        `Logged ${strategyName}`,
+        'Saved to Supabase farmer decision log.',
+      );
+    } else {
+      toast.warning(
+        `Saved ${strategyName} offline`,
+        `${res.queuedCount} decision(s) queued to sync when online.`,
+      );
+    }
   };
 
   return (
@@ -155,7 +191,7 @@ export default function CompareScreen() {
       edges={['top']}
       style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <TopBarHeader
-        title={`My Strategies (${strategies.length})`}
+        title={`Strategies (${strategies.length})`}
         subtitle={`${selectedCell.cellId} · ${sourceBadge} · ${activeScenario.shortLabel}`}
         rightActions={[
           {
@@ -195,16 +231,14 @@ export default function CompareScreen() {
         />
 
         <View style={styles.stressSection}>
-          <ThemedText type="smallBold" themeColor="textSecondary">
-            Climate Stress &amp; Analog Replay
-          </ThemedText>
+          <Label>CLIMATE STRESS &amp; ANALOG REPLAY</Label>
           <SegmentedPillBar
             options={STRESS_PILL_OPTIONS}
             selectedId={stressId}
-            onSelect={(id) => setStressId(id as ClimateStressId)}
+            onSelect={(id) => handleSelectStress(id as ClimateStressId)}
           />
           {stressId !== 'baseline' && (
-            <ThemedText type="small" themeColor="textMuted">
+            <ThemedText type="small" themeColor="mutedText">
               Simulating: {activeScenario.label}
             </ThemedText>
           )}
@@ -221,11 +255,11 @@ export default function CompareScreen() {
             style={[
               styles.feedbackBanner,
               {
-                backgroundColor: theme.primarySoft,
-                borderColor: theme.primary,
+                backgroundColor: theme.sage.surface,
+                borderColor: theme.sage.edge,
               },
             ]}>
-            <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
+            <ThemedText type="smallBold" style={{ color: theme.sage.ink }}>
               {decisionFeedback ??
                 `${queuedLogsCount} field submission(s) waiting offline to sync.`}
             </ThemedText>
@@ -242,14 +276,16 @@ export default function CompareScreen() {
                 borderColor: theme.border,
               },
             ]}>
-            <ThemedText type="smallBold">Custom Priority Weights</ThemedText>
+            <ThemedText type="sectionTitle">Custom Priority Weights</ThemedText>
             {SCORING_CRITERIA.map((criterion, idx) => {
               const sharePct = Math.round((weights[idx] / weightSum) * 100);
               return (
                 <View key={criterion} style={styles.sliderBlock}>
                   <View style={styles.weightRow}>
-                    <ThemedText type="small">{criterion}</ThemedText>
-                    <ThemedText type="code" style={{ color: theme.primaryText }}>
+                    <ThemedText type="smallBold">{criterion}</ThemedText>
+                    <ThemedText
+                      type="code"
+                      style={{ color: theme.personal.ink }}>
                       {sharePct}% share ({weights[idx].toFixed(2)})
                     </ThemedText>
                   </View>
@@ -279,18 +315,34 @@ export default function CompareScreen() {
             <ThemedText type="sectionTitle">
               Strategy &amp; Regret Matrix ({activeScenario.shortLabel})
             </ThemedText>
-            <View style={[styles.matrixHeader, { borderBottomColor: theme.border }]}>
-              <ThemedText type="code" themeColor="textMuted" style={styles.matrixColName}>
-                Strategy
+            <View
+              style={[
+                styles.matrixHeader,
+                { borderBottomColor: theme.border },
+              ]}>
+              <ThemedText
+                type="code"
+                themeColor="mutedText"
+                style={styles.matrixColName}>
+                STRATEGY
               </ThemedText>
-              <ThemedText type="code" themeColor="textMuted" style={styles.matrixColStat}>
-                Fit
+              <ThemedText
+                type="code"
+                themeColor="mutedText"
+                style={styles.matrixColStat}>
+                FIT
               </ThemedText>
-              <ThemedText type="code" themeColor="textMuted" style={styles.matrixColStat}>
-                Win%
+              <ThemedText
+                type="code"
+                themeColor="mutedText"
+                style={styles.matrixColStat}>
+                WIN%
               </ThemedText>
-              <ThemedText type="code" themeColor="textMuted" style={styles.matrixColStat}>
-                Regret
+              <ThemedText
+                type="code"
+                themeColor="mutedText"
+                style={styles.matrixColStat}>
+                REGRET
               </ThemedText>
             </View>
             {rankedIndices.map((sIdx) => {
@@ -300,13 +352,18 @@ export default function CompareScreen() {
               return (
                 <View
                   key={`mtx-${s.code}`}
-                  style={[styles.matrixRow, { borderBottomColor: theme.border }]}>
+                  style={[
+                    styles.matrixRow,
+                    { borderBottomColor: theme.border },
+                  ]}>
                   <View style={styles.matrixColName}>
                     <ThemedText type="smallBold" numberOfLines={1}>
                       {s.name}
                     </ThemedText>
                     {isSafe && (
-                      <ThemedText type="code" style={{ color: theme.primaryText }}>
+                      <ThemedText
+                        type="code"
+                        style={{ color: theme.sage.ink }}>
                         Lowest-Regret Pick
                       </ThemedText>
                     )}
@@ -321,7 +378,7 @@ export default function CompareScreen() {
                     type="code"
                     style={[
                       styles.matrixColStat,
-                      { color: isSafe ? theme.primaryText : theme.amber },
+                      { color: isSafe ? theme.sage.ink : theme.warning },
                     ]}>
                     {regret ? `${Math.round(regret.maxRegret * 100)}%` : '—'}
                   </ThemedText>
@@ -333,205 +390,218 @@ export default function CompareScreen() {
 
         {viewMode === 'cards' &&
           rankedIndices.map((sIdx, rankPos) => {
-          const strategy = strategies[sIdx];
-          const scorePct = Math.round(computedScores[sIdx] * 100);
-          const deltaPct = Math.round(
-            (computedScores[sIdx] - baselineScores[sIdx]) * 100,
-          );
-          const probPct = Math.round(stability.probabilityFirst[sIdx] * 100);
-          const isExpanded = expandedCode === strategy.code;
-          const isLowestRegret = minimax.lowestRegretCode === strategy.code;
-          const regretRow = minimax.rowsByCode[strategy.code];
-          const nOffset = estimateNitrogenOffsetSummary(strategy);
+            const strategy = strategies[sIdx];
+            const scorePct = Math.round(computedScores[sIdx] * 100);
+            const deltaPct = Math.round(
+              (computedScores[sIdx] - baselineScores[sIdx]) * 100,
+            );
+            const probPct = Math.round(
+              stability.probabilityFirst[sIdx] * 100,
+            );
+            const isExpanded = expandedCode === strategy.code;
+            const isLowestRegret = minimax.lowestRegretCode === strategy.code;
+            const regretRow = minimax.rowsByCode[strategy.code];
+            const nOffset = estimateNitrogenOffsetSummary(strategy);
 
-          return (
-            <View
-              key={strategy.code}
-              style={[
-                styles.strategyCard,
-                CardShadow,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor:
-                    rankPos === 0 ? theme.primary : theme.border,
-                },
-              ]}>
-              <CropSequenceStrip
-                sequence={strategy.sequence}
-                isBaseline={strategy.isBaseline}
-              />
+            return (
+              <View
+                key={strategy.code}
+                style={[
+                  styles.strategyCard,
+                  CardShadow,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                    borderLeftWidth: rankPos === 0 ? 4 : 1,
+                    borderLeftColor:
+                      rankPos === 0 ? theme.primary : theme.border,
+                  },
+                ]}>
+                <CropSequenceStrip
+                  sequence={strategy.sequence}
+                  isBaseline={strategy.isBaseline}
+                />
 
-              <View style={styles.cardMetaRow}>
-                <View style={styles.flexOne}>
-                  <ThemedText type="sectionTitle">{strategy.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textMuted">
-                    {selectedCell.cellId} ·{' '}
-                    {strategy.isBaseline ? 'Current baseline' : `Option #${rankPos + 1}`}
-                  </ThemedText>
-                </View>
-
-                <View style={styles.statusRight}>
-                  <View style={styles.onlineRow}>
-                    <View
-                      style={[
-                        styles.onlineDot,
-                        {
-                          backgroundColor:
-                            rankPos === 0 ? theme.primaryText : theme.amber,
-                        },
-                      ]}
-                    />
-                    <ThemedText type="smallBold">
-                      Rank #{rankPos + 1} · {probPct}% win
+                <View style={styles.cardMetaRow}>
+                  <View style={styles.flexOne}>
+                    <ThemedText type="sectionTitle">
+                      {strategy.name}
+                    </ThemedText>
+                    <ThemedText type="small" themeColor="mutedText">
+                      {selectedCell.cellId} ·{' '}
+                      {strategy.isBaseline
+                        ? 'Current baseline'
+                        : `Option #${rankPos + 1}`}
                     </ThemedText>
                   </View>
-                  <ThemedText type="small" themeColor="textMuted">
-                    Mean rank {stability.meanRank[sIdx].toFixed(2)}
-                    {stressId !== 'baseline'
-                      ? ` · ${deltaPct >= 0 ? `+${deltaPct}` : deltaPct}% vs base`
-                      : ''}
-                  </ThemedText>
-                </View>
-              </View>
 
-              {(isLowestRegret || nOffset.ureaBagsSavedPerHa > 0 || nOffset.bareDaysAvoided > 0) && (
-                <View style={styles.highlightChipsRow}>
-                  {isLowestRegret && (
-                    <View
-                      style={[
-                        styles.regretBadge,
-                        { backgroundColor: theme.primarySoft },
-                      ]}>
-                      <ShieldCheck size={13} color={theme.primaryText} />
-                      <ThemedText type="code" style={{ color: theme.primaryText }}>
-                        Lowest-Regret Safe Pick
-                        {regretRow ? ` (gap ${(regretRow.maxRegret * 100).toFixed(0)}%)` : ''}
-                      </ThemedText>
-                    </View>
-                  )}
-                  {nOffset.ureaBagsSavedPerHa > 0 && (
-                    <View
-                      style={[
-                        styles.regretBadge,
-                        { backgroundColor: theme.backgroundElement },
-                      ]}>
-                      <Sprout size={13} color={theme.primaryText} />
-                      <ThemedText type="code" themeColor="textSecondary">
-                        ~{nOffset.ureaBagsSavedPerHa} urea bags/ha saved
-                      </ThemedText>
-                    </View>
-                  )}
-                  {nOffset.bareDaysAvoided > 0 && (
-                    <View
-                      style={[
-                        styles.regretBadge,
-                        { backgroundColor: theme.backgroundElement },
-                      ]}>
-                      <Layers size={13} color={theme.amber} />
-                      <ThemedText type="code" themeColor="textSecondary">
-                        -{nOffset.bareDaysAvoided} Harmattan bare d
-                      </ThemedText>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              <ThreeZoneGaugeBar
-                label="Weighted priority fit"
-                scorePercent={scorePct}
-                zoneLabels={['Low fit', 'Optimal', 'Robust']}
-              />
-
-              <View style={styles.actionRow}>
-                <Pressable
-                  onPress={() => handleShareSms(sIdx)}
-                  style={({ pressed }) => [
-                    styles.actionBtn,
-                    { backgroundColor: theme.backgroundElement },
-                    pressed && styles.pressed,
-                  ]}>
-                  <ThemedText type="smallBold" themeColor="textSecondary">
-                    Share SMS / Twi
-                  </ThemedText>
-                </Pressable>
-                <Pressable
-                  onPress={() => void handleLogDecision(strategy.code, strategy.name)}
-                  style={({ pressed }) => [
-                    styles.actionBtn,
-                    { backgroundColor: theme.primarySoft },
-                    pressed && styles.pressed,
-                  ]}>
-                  <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
-                    Log Choice
-                  </ThemedText>
-                </Pressable>
-              </View>
-
-              <Pressable
-                onPress={() =>
-                  setExpandedCode(isExpanded ? null : strategy.code)
-                }
-                style={({ pressed }) => [
-                  styles.expandToggle,
-                  { backgroundColor: theme.backgroundElement },
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {isExpanded
-                    ? 'Hide agronomic breakdown'
-                    : 'View benefits, gaps & local checks'}
-                </ThemedText>
-              </Pressable>
-
-              {isExpanded && (
-                <View style={styles.expandedBody}>
-                  <View style={styles.criteriaChips}>
-                    {SCORING_CRITERIA.map((criterion, cIdx) => (
+                  <View style={styles.statusRight}>
+                    <View style={styles.onlineRow}>
                       <View
-                        key={criterion}
                         style={[
-                          styles.criterionChip,
-                          { backgroundColor: theme.backgroundElement },
+                          styles.onlineDot,
+                          {
+                            backgroundColor:
+                              rankPos === 0 ? theme.primary : theme.warning,
+                          },
+                        ]}
+                      />
+                      <ThemedText type="smallBold">
+                        Rank #{rankPos + 1} · {probPct}% win
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="small" themeColor="mutedText">
+                      Mean rank {stability.meanRank[sIdx].toFixed(2)}
+                      {stressId !== 'baseline'
+                        ? ` · ${deltaPct >= 0 ? `+${deltaPct}` : deltaPct}% vs base`
+                        : ''}
+                    </ThemedText>
+                  </View>
+                </View>
+
+                {(isLowestRegret ||
+                  nOffset.ureaBagsSavedPerHa > 0 ||
+                  nOffset.bareDaysAvoided > 0) && (
+                  <View style={styles.highlightChipsRow}>
+                    {isLowestRegret && (
+                      <View
+                        style={[
+                          styles.regretBadge,
+                          { backgroundColor: theme.sage.surface },
                         ]}>
-                        <ThemedText type="code" themeColor="textSecondary">
-                          {criterion.split(' ')[0]}:{' '}
-                          {scoreMatrix[sIdx][cIdx].toFixed(2)}
+                        <ShieldCheck size={13} color={theme.sage.ink} />
+                        <ThemedText
+                          type="code"
+                          style={{ color: theme.sage.ink }}>
+                          Lowest-Regret Safe Pick
+                          {regretRow
+                            ? ` (gap ${(regretRow.maxRegret * 100).toFixed(0)}%)`
+                            : ''}
                         </ThemedText>
                       </View>
+                    )}
+                    {nOffset.ureaBagsSavedPerHa > 0 && (
+                      <View
+                        style={[
+                          styles.regretBadge,
+                          { backgroundColor: theme.surfaceSubtle },
+                        ]}>
+                        <Sprout size={13} color={theme.sage.edge} />
+                        <ThemedText type="code" themeColor="secondary">
+                          ~{nOffset.ureaBagsSavedPerHa} urea bags/ha saved
+                        </ThemedText>
+                      </View>
+                    )}
+                    {nOffset.bareDaysAvoided > 0 && (
+                      <View
+                        style={[
+                          styles.regretBadge,
+                          { backgroundColor: theme.personal.surface },
+                        ]}>
+                        <Layers size={13} color={theme.primary} />
+                        <ThemedText
+                          type="code"
+                          style={{ color: theme.personal.ink }}>
+                          -{nOffset.bareDaysAvoided} Harmattan bare d
+                        </ThemedText>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <ThreeZoneGaugeBar
+                  label="Weighted priority fit"
+                  scorePercent={scorePct}
+                  zoneLabels={['Low fit', 'Optimal', 'Robust']}
+                />
+
+                <View style={styles.actionRow}>
+                  <View style={styles.flexOne}>
+                    <Button
+                      title="Share SMS / Twi"
+                      onPress={() => handleShareSms(sIdx)}
+                      secondary
+                    />
+                  </View>
+                  <View style={styles.flexOne}>
+                    <Button
+                      title="Log Choice"
+                      onPress={() =>
+                        void handleLogDecision(strategy.code, strategy.name)
+                      }
+                    />
+                  </View>
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    setExpandedCode(isExpanded ? null : strategy.code)
+                  }
+                  style={({ pressed }) => [
+                    styles.expandToggle,
+                    { backgroundColor: theme.surfaceSubtle },
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText type="smallBold" themeColor="secondary">
+                    {isExpanded
+                      ? 'Hide agronomic breakdown'
+                      : 'View benefits, gaps & local checks'}
+                  </ThemedText>
+                </Pressable>
+
+                {isExpanded && (
+                  <View style={styles.expandedBody}>
+                    <View style={styles.criteriaChips}>
+                      {SCORING_CRITERIA.map((criterion, cIdx) => (
+                        <View
+                          key={criterion}
+                          style={[
+                            styles.criterionChip,
+                            { backgroundColor: theme.surfaceSubtle },
+                          ]}>
+                          <ThemedText type="code" themeColor="secondary">
+                            {criterion.split(' ')[0]}:{' '}
+                            {scoreMatrix[sIdx][cIdx].toFixed(2)}
+                          </ThemedText>
+                        </View>
+                      ))}
+                    </View>
+
+                    <ThemedText type="smallBold">Expected benefits</ThemedText>
+                    {strategy.expectedBenefits.map((benefit) => (
+                      <ThemedText
+                        key={benefit}
+                        type="small"
+                        themeColor="secondary">
+                        • {benefit}
+                      </ThemedText>
+                    ))}
+
+                    <ThemedText type="smallBold">
+                      Information gaps &amp; local review
+                    </ThemedText>
+                    {strategy.informationGaps.map((gap) => (
+                      <ThemedText
+                        key={gap}
+                        type="small"
+                        themeColor="secondary">
+                        • Gap: {gap}
+                      </ThemedText>
+                    ))}
+                    {strategy.risksNeedingReview.map((risk) => (
+                      <ThemedText
+                        key={risk}
+                        type="small"
+                        themeColor="secondary">
+                        • Local check: {risk}
+                      </ThemedText>
                     ))}
                   </View>
-
-                  <ThemedText type="smallBold">Expected benefits</ThemedText>
-                  {strategy.expectedBenefits.map((benefit) => (
-                    <ThemedText
-                      key={benefit}
-                      type="small"
-                      themeColor="textSecondary">
-                      • {benefit}
-                    </ThemedText>
-                  ))}
-
-                  <ThemedText type="smallBold">
-                    Information gaps &amp; local review
-                  </ThemedText>
-                  {strategy.informationGaps.map((gap) => (
-                    <ThemedText key={gap} type="small" themeColor="textSecondary">
-                      • Gap: {gap}
-                    </ThemedText>
-                  ))}
-                  {strategy.risksNeedingReview.map((risk) => (
-                    <ThemedText
-                      key={risk}
-                      type="small"
-                      themeColor="textSecondary">
-                      • Local check: {risk}
-                    </ThemedText>
-                  ))}
-                </View>
-              )}
-            </View>
-          );
-        })}
+                )}
+              </View>
+            );
+          })}
       </ScrollView>
 
       <SmsShareModal
@@ -547,28 +617,28 @@ export default function CompareScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   stressSection: {
-    gap: 6,
+    gap: 8,
   },
   scrollContent: {
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: roofiSpacing[5],
+    paddingTop: roofiSpacing[2],
+    paddingBottom: BottomTabInset + roofiSpacing[6],
+    gap: roofiSpacing[4],
   },
   editorCard: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
-    gap: 10,
+    padding: roofiSpacing[4],
+    gap: 12,
   },
   weightRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.two,
+    gap: roofiSpacing[2],
   },
   sliderBlock: {
     gap: 2,
@@ -590,20 +660,20 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   matrixColStat: {
-    width: 48,
+    width: 52,
     textAlign: 'right',
   },
   strategyCard: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
+    padding: roofiSpacing[4],
     gap: 12,
   },
   cardMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: Spacing.two,
+    gap: roofiSpacing[2],
   },
   flexOne: { flex: 1 },
   statusRight: {
@@ -613,18 +683,20 @@ const styles = StyleSheet.create({
   onlineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
   },
   onlineDot: {
-    width: 7,
-    height: 7,
+    width: 8,
+    height: 8,
     borderRadius: 4,
   },
   expandToggle: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: Radii.md,
+    minHeight: 40,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: roofiRadii.pill,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   expandedBody: {
     gap: 6,
@@ -637,15 +709,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   criterionChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.pill,
   },
   feedbackBanner: {
-    borderRadius: Radii.md,
+    borderRadius: roofiRadii.xl,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   highlightChipsRow: {
     flexDirection: 'row',
@@ -656,20 +728,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.pill,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  actionBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: Radii.md,
-    alignItems: 'center',
+    gap: 10,
   },
   pressed: { opacity: 0.75 },
 });

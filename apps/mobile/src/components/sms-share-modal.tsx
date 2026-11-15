@@ -1,11 +1,21 @@
 import * as Clipboard from 'expo-clipboard';
-import { Check, Copy, MessageSquareShare, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, Share, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  Share,
+  StyleSheet,
+  View,
+} from 'react-native';
 
+import { PlannerIcon } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
-import { CardShadow, Radii, Spacing } from '@/constants/theme';
+import { Button, Heading } from '@/components/ui';
+import { roofiRadii, roofiSpacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { toast } from '@/lib/toast';
 
 export interface SmsShareModalProps {
   visible: boolean;
@@ -15,8 +25,8 @@ export interface SmsShareModalProps {
 }
 
 /**
- * Low-bandwidth EN + Ashanti Twi SMS/WhatsApp summary card preview modal
- * using expo-clipboard and React Native Share without Reanimated 4 conflicts.
+ * Low-bandwidth EN + Ashanti Twi SMS/WhatsApp summary card bottom sheet,
+ * styled to match Autis Planner's TaskActionsSheet (26px top radius, drag bar, pill buttons).
  */
 export function SmsShareModal({
   visible,
@@ -37,13 +47,17 @@ export function SmsShareModal({
   const handleCopy = async () => {
     await Clipboard.setStringAsync(message);
     setCopied(true);
+    toast.success(
+      'Copied bilingual SMS card',
+      `${charCount} chars (${segments} SMS ${segments === 1 ? 'part' : 'parts'}) copied to clipboard.`,
+    );
   };
 
   const handleNativeShare = async () => {
     try {
       await Share.share({ message });
     } catch {
-      // User dismissed share sheet cleanly
+      toast.error('Could not open share sheet');
     }
   };
 
@@ -53,30 +67,47 @@ export function SmsShareModal({
       transparent
       animationType="slide"
       onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardWrap}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close share sheet"
+          onPress={onClose}
+          style={styles.backdrop}
+        />
+
         <View
           style={[
             styles.sheet,
-            CardShadow,
-            { backgroundColor: theme.surface, borderColor: theme.border },
+            { backgroundColor: theme.background },
           ]}>
+          <View
+            style={[
+              styles.dragHandle,
+              { backgroundColor: theme.border },
+            ]}
+          />
+
           <View style={styles.headerRow}>
             <View style={styles.flexOne}>
-              <ThemedText type="sectionTitle">
-                Farmer SMS / WhatsApp Card
-              </ThemedText>
-              <ThemedText type="small" themeColor="textMuted">
-                {strategyName} · Bilingual EN + Twi
-              </ThemedText>
+              <Heading
+                title="Farmer SMS / WhatsApp Card"
+                subtitle={`${strategyName} · Bilingual EN + Twi`}
+              />
             </View>
             <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Close share sheet"
               onPress={onClose}
               style={[
                 styles.closeBtn,
-                { backgroundColor: theme.backgroundElement },
+                {
+                  backgroundColor: theme.surfaceSubtle,
+                  borderColor: theme.border,
+                },
               ]}>
-              <X size={18} color={theme.text} />
+              <PlannerIcon name="close" size={16} color={theme.foreground} />
             </Pressable>
           </View>
 
@@ -84,112 +115,112 @@ export function SmsShareModal({
             style={[
               styles.messageBubble,
               {
-                backgroundColor: theme.primarySoft,
-                borderColor: theme.primary,
+                backgroundColor: theme.surfaceSubtle,
+                borderColor: theme.border,
+                borderLeftColor: theme.primary,
               },
             ]}>
-            <ThemedText type="small" style={{ color: theme.text }}>
+            <ThemedText type="default" style={{ color: theme.foreground }}>
               {message}
             </ThemedText>
           </View>
 
           <View style={styles.metaRow}>
-            <ThemedText type="code" themeColor="textSecondary">
-              {charCount}/320 chars · {segments} SMS {segments === 1 ? 'part' : 'parts'}
+            <ThemedText type="code" themeColor="secondary">
+              {charCount}/320 chars · {segments} SMS{' '}
+              {segments === 1 ? 'part' : 'parts'}
             </ThemedText>
-            <ThemedText type="code" style={{ color: theme.primaryText }}>
-              2G-ready format
-            </ThemedText>
+            <View
+              style={[
+                styles.readyBadge,
+                { backgroundColor: theme.sage.surface },
+              ]}>
+              <ThemedText type="code" style={{ color: theme.sage.ink }}>
+                2G-READY FORMAT
+              </ThemedText>
+            </View>
           </View>
 
           <View style={styles.actionsRow}>
-            <Pressable
-              onPress={() => void handleCopy()}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                { backgroundColor: theme.backgroundElement },
-                pressed && styles.pressed,
-              ]}>
-              {copied ? (
-                <Check size={16} color={theme.primaryText} />
-              ) : (
-                <Copy size={16} color={theme.text} />
-              )}
-              <ThemedText
-                type="smallBold"
-                style={{ color: copied ? theme.primaryText : theme.text }}>
-                {copied ? 'Copied!' : 'Copy Text'}
-              </ThemedText>
-            </Pressable>
-
-            <Pressable
-              onPress={() => void handleNativeShare()}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                { backgroundColor: theme.primary },
-                pressed && styles.pressed,
-              ]}>
-              <MessageSquareShare size={16} color="#FFFFFF" />
-              <ThemedText type="smallBold" style={{ color: '#FFFFFF' }}>
-                Share via App
-              </ThemedText>
-            </Pressable>
+            <View style={styles.flexOne}>
+              <Button
+                title={copied ? 'Copied!' : 'Copy Text'}
+                onPress={() => void handleCopy()}
+                secondary
+              />
+            </View>
+            <View style={styles.flexOne}>
+              <Button
+                title="Share via App"
+                onPress={() => void handleNativeShare()}
+              />
+            </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  keyboardWrap: {
     flex: 1,
-    backgroundColor: 'rgba(15, 18, 16, 0.45)',
     justifyContent: 'flex-end',
-    padding: Spacing.three,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
   },
   sheet: {
-    borderRadius: Radii.xl,
-    borderWidth: 1,
-    padding: Spacing.four,
+    padding: 20,
+    paddingBottom: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
     gap: 12,
+  },
+  dragHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 4,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
   },
   flexOne: { flex: 1 },
   closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 38,
+    height: 38,
+    borderRadius: roofiRadii.pill,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   messageBubble: {
-    borderRadius: Radii.md,
+    borderRadius: roofiRadii.xl,
     borderWidth: 1,
-    padding: 12,
+    borderLeftWidth: 4,
+    padding: roofiSpacing[4],
   },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  readyBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: roofiRadii.pill,
+  },
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 2,
   },
-  actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: Radii.md,
-  },
-  pressed: { opacity: 0.78 },
 });

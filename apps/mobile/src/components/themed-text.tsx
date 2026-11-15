@@ -1,6 +1,6 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { roofiTypography, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextVariant =
@@ -32,7 +32,14 @@ export function ThemedText({
 
   return (
     <Text
-      style={[{ color: theme[themeColor ?? 'text'] }, styles[type], style]}
+      style={[
+        {
+          color: theme[themeColor ?? 'foreground'],
+        },
+        styles[type],
+        type === 'linkPrimary' ? { color: theme.primary } : null,
+        style,
+      ]}
       {...rest}
     />
   );
@@ -40,73 +47,84 @@ export function ThemedText({
 
 const styles = StyleSheet.create({
   hero: {
-    fontSize: 32,
-    lineHeight: 38,
+    fontFamily: roofiTypography.fontFamily.display,
+    fontSize: roofiTypography.fontSize.displayM,
+    lineHeight: roofiTypography.lineHeight.displayM,
     fontWeight: '700',
     letterSpacing: -0.6,
     fontVariant: ['tabular-nums'],
   },
   kpi: {
-    fontSize: 22,
-    lineHeight: 26,
+    fontFamily: roofiTypography.fontFamily.display,
+    fontSize: roofiTypography.fontSize.stat,
+    lineHeight: roofiTypography.lineHeight.stat,
     fontWeight: '700',
     letterSpacing: -0.4,
     fontVariant: ['tabular-nums'],
   },
   title: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontFamily: roofiTypography.fontFamily.display,
+    fontSize: roofiTypography.fontSize.screenTitle,
+    lineHeight: roofiTypography.lineHeight.screenTitle,
     fontWeight: '700',
-    letterSpacing: -0.5,
+    letterSpacing: -0.35,
+    textTransform: 'uppercase',
   },
   subtitle: {
-    fontSize: 18,
+    fontFamily: roofiTypography.fontFamily.display,
+    fontSize: 19,
     lineHeight: 24,
-    fontWeight: '600',
-    letterSpacing: -0.2,
+    fontWeight: '700',
+    letterSpacing: -0.25,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontSize: roofiTypography.fontSize.price,
     lineHeight: 22,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   default: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontFamily: roofiTypography.fontFamily.body,
+    fontSize: roofiTypography.fontSize.body,
+    lineHeight: roofiTypography.lineHeight.body,
     fontWeight: '500',
   },
   smallBold: {
-    fontSize: 13,
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontSize: roofiTypography.fontSize.button,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   small: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontFamily: roofiTypography.fontFamily.body,
+    fontSize: roofiTypography.fontSize.label,
+    lineHeight: roofiTypography.lineHeight.label,
     fontWeight: '400',
   },
   captionUppercase: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '600',
-    letterSpacing: 0.6,
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontSize: roofiTypography.fontSize.caption,
+    lineHeight: roofiTypography.lineHeight.caption,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   link: {
-    lineHeight: 24,
+    fontFamily: roofiTypography.fontFamily.body,
+    lineHeight: 22,
     fontSize: 13,
     fontWeight: '500',
   },
   linkPrimary: {
-    lineHeight: 24,
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    lineHeight: 22,
     fontSize: 13,
-    fontWeight: '600',
-    color: '#4EA829',
+    fontWeight: '700',
   },
   code: {
-    fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: '700' }) ?? '600',
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontWeight: Platform.select({ android: '700' }) ?? '700',
     fontSize: 11,
     lineHeight: 15,
     fontVariant: ['tabular-nums'],
