@@ -12,7 +12,6 @@ import {
   TopSearchRegionHeader,
 } from '@/components/design-system';
 import { PlannerIcon } from '@/components/icons';
-import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Heading, Label } from '@/components/ui';
 import { evaluateMobileScaleHonesty } from '@/constants/pilot-data';
@@ -189,8 +188,6 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <SyncStatusPill />
-
         {/* Autis Planner Horizontal Workspace / Cell Switcher */}
         <View style={styles.workspaceSwitcherWrap}>
           <View style={styles.workspaceSwitcherHeader}>

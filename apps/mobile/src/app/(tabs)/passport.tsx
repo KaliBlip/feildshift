@@ -9,7 +9,6 @@ import {
   ThreeZoneGaugeBar,
   TopBarHeader,
 } from '@/components/design-system';
-import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Field, Heading, Label } from '@/components/ui';
 import { Collapsible } from '@/components/ui/collapsible';
@@ -89,7 +88,6 @@ export default function PassportScreen() {
     selectedCell,
     passports,
     dataSourceMode,
-    queuedLogsCount,
     logFieldOutcome,
   } = usePilotState();
   const [tierFilter, setTierFilter] = useState<TierFilter>('all');
@@ -107,7 +105,6 @@ export default function PassportScreen() {
     'Strong' | 'Average' | 'Stressed'
   >('Average');
   const [outcomeNotes, setOutcomeNotes] = useState('');
-  const [outcomeStatus, setOutcomeStatus] = useState<string | null>(null);
 
   const handleSubmitOutcome = async () => {
     const trimmed = outcomeNotes.trim();
@@ -123,11 +120,6 @@ export default function PassportScreen() {
       pestOrDiseaseNotes: null,
     });
     setOutcomeNotes('');
-    setOutcomeStatus(
-      res.status === 'submitted'
-        ? 'Submitted for officer verification (does not auto-shift model).'
-        : `Queued offline (${res.queuedCount} waiting) until connection returns.`,
-    );
     if (res.status === 'submitted') {
       toast.success(
         'Field observation submitted',
@@ -172,13 +164,7 @@ export default function PassportScreen() {
               android: 'verified_user',
               web: 'verified_user',
             },
-            onPress: () => {
-              setTierFilter('all');
-              toast.info(
-                'All evidence tiers shown',
-                'Displaying science, data-derived, and hypothesis passports.',
-              );
-            },
+            onPress: () => setTierFilter('all'),
             accessibilityLabel: 'Show all evidence tiers',
           },
         ]}
@@ -187,8 +173,6 @@ export default function PassportScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <SyncStatusPill />
-
         <SegmentedPillBar
           options={TIER_FILTER_OPTIONS}
           selectedId={tierFilter}
@@ -337,7 +321,6 @@ export default function PassportScreen() {
               </ThemedText>
               <ThemedText type="small" themeColor="mutedText">
                 Saved for extension-officer review before model recalibration
-                {queuedLogsCount > 0 ? ` · ${queuedLogsCount} queued` : ''}
               </ThemedText>
             </View>
             <View
@@ -397,12 +380,6 @@ export default function PassportScreen() {
                 onPress={() => void handleSubmitOutcome()}
               />
             </View>
-          )}
-
-          {outcomeStatus !== null && (
-            <ThemedText type="smallBold" style={{ color: theme.sage.ink }}>
-              {outcomeStatus}
-            </ThemedText>
           )}
         </View>
       </ScrollView>

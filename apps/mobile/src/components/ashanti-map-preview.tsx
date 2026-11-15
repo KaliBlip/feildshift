@@ -42,22 +42,7 @@ export function AshantiMapPreview({
         CardShadow,
         { backgroundColor: theme.surface, borderColor: theme.border },
       ]}>
-      <View style={styles.headerRow}>
-        <View style={styles.titleRow}>
-          <View
-            style={[
-              styles.iconChip,
-              { backgroundColor: theme.personal.surface },
-            ]}>
-            <PlannerIcon name="pin" size={14} color={theme.primary} />
-          </View>
-          <ThemedText type="sectionTitle">Ashanti 5×5 km Grid Map</ThemedText>
-        </View>
-        <ThemedText type="code" themeColor="mutedText">
-          {activeCell.centreLat.toFixed(3)}°N,{' '}
-          {Math.abs(activeCell.centreLon).toFixed(3)}°W
-        </ThemedText>
-      </View>
+
 
       <View style={[styles.mapFrame, { borderColor: theme.border }]}>
         <MapView
@@ -74,11 +59,11 @@ export function AshantiMapPreview({
               <Polygon
                 key={`poly-${cell.cellId}`}
                 coordinates={cellSquareCoords(cell)}
-                strokeColor={isSelected ? theme.primary : theme.sage.edge}
+                strokeColor={isSelected ? theme.primary : theme.foreground}
                 fillColor={
                   isSelected
-                    ? 'rgba(255, 106, 43, 0.26)'
-                    : 'rgba(31, 178, 107, 0.16)'
+                    ? 'rgba(54, 112, 255, 0.26)'
+                    : 'rgba(23, 23, 23, 0.12)'
                 }
                 strokeWidth={isSelected ? 2.5 : 1.5}
                 tappable
@@ -96,18 +81,33 @@ export function AshantiMapPreview({
               title={cell.cellId}
               description={`${cell.zoneName} · Slope ${cell.slopePct}%`}
               pinColor={
-                cell.cellId === selectedCellId ? '#FF6A2B' : '#1FB26B'
+                cell.cellId === selectedCellId ? '#3670FF' : '#171717'
               }
               onPress={() => onSelectCell(cell.cellId)}
             />
           ))}
         </MapView>
       </View>
-
-      <ThemedText type="small" themeColor="secondary">
+      <View style={styles.headerRow}>
+        <View style={styles.titleRow}>
+          <View
+            style={[
+              styles.iconChip,
+              { backgroundColor: theme.personal.surface },
+            ]}>
+            <PlannerIcon name="pin" size={14} color={theme.primary} />
+          </View>
+          <ThemedText type="sectionTitle">Ashanti 5×5 km Grid Map</ThemedText>
+        </View>
+        <ThemedText type="code" themeColor="mutedText">
+          {activeCell.centreLat.toFixed(3)}°N,{' '}
+          {Math.abs(activeCell.centreLon).toFixed(3)}°W
+        </ThemedText>
+      </View>
+      {/* <ThemedText type="small" themeColor="secondary">
         Tap any 5×5 km cell pin to switch local EO climate, soil pH, and slope
         priors.
-      </ThemedText>
+      </ThemedText> */}
     </View>
   );
 }

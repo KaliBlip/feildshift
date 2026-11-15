@@ -11,7 +11,6 @@ import {
   SegmentedPillBar,
   TopBarHeader,
 } from '@/components/design-system';
-import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
 import { Heading } from '@/components/ui';
 import { SEASONAL_VULNERABILITY_CALENDAR } from '@/constants/pilot-data';
@@ -61,12 +60,6 @@ export default function CalendarScreen() {
 
   const handleFilterSelect = (nextFilter: CalendarFilter) => {
     setFilter(nextFilter);
-    if (nextFilter === 'bare') {
-      toast.warning(
-        `${bareCount} bare-soil exposure windows`,
-        'NDVI < 0.28 flagged for Harmattan wind & onset splash erosion.',
-      );
-    }
   };
 
   const filteredWindows = SEASONAL_VULNERABILITY_CALENDAR.filter((item) => {
@@ -134,13 +127,7 @@ export default function CalendarScreen() {
               android: 'more_vert',
               web: 'more_vert',
             },
-            onPress: () => {
-              setFilter('all');
-              toast.info(
-                'Calendar filter reset',
-                'Showing all 12 monthly dekad windows.',
-              );
-            },
+            onPress: () => setFilter('all'),
             accessibilityLabel: 'Reset calendar filter',
           },
         ]}
@@ -149,8 +136,6 @@ export default function CalendarScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <SyncStatusPill />
-
         <HeroStatusCard
           value="67"
           unit="%"
