@@ -8,15 +8,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test src/lib/scoring.test.ts src/lib/phase4_5.test.ts"
+    "test": "node --test src/lib/scoring.test.ts src/lib/decision-data.test.ts src/lib/phase4_5.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "lucide-react": "^1.73.0",
-    "test": "node --test src/lib/scoring.test.ts src/lib/decision-data.test.ts"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
     "maplibre-gl": "^6.18.0",
     "next": "16.4.6",
     "next-intl": "^4.15.1",
