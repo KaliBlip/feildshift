@@ -11,12 +11,12 @@
 | Phase | `kaliblip` (Mobile, Pipeline, API, DB) | `OdinID-CS` (Web App) | Notes |
 | --- | --- | --- | --- |
 | Phase 0 — Foundations & Scoring Parity | ✅ Completed | ✅ Completed | Python, Web, Mobile match `shared/test-vectors/scoring_basic.json` to `1e-9`. |
-| Phase 1 — Schema, Ingestion & Context | ✅ Completed | ✅ Completed | Live Supabase schema migrated & seeded; optional 30 m **iSDAsoil v2** (`sources.py`, fallback to SoilGrids) & web foundation merged. |
-| Phase 2 — Features, M1–M4 & Core Visuals | ✅ Completed | ⬜ Pending | Pipeline features (incl. WaPOR `P/ET0`, water deficit, flash-drought decoupling), M1–M4 models & cited `knowledge/*.csv` done; web Calendar/Map/Banner pending. |
-| Phase 3 — M6/M7, Supabase Seed & Comparison UI | ✅ Completed | ⬜ Pending | M6 fusion (N-fixation urea bag savings & Harmattan bare-days avoided), M7 Passports, live `smap`/`modis`/`nasa_power`/`soilgrids` seed (`5` cells) & Mobile hydration done. |
-| Phase 4 — Stress-Testing, Analogs & Offline Cache | ✅ Completed *(M5 stretch deferred)* | ⬜ Pending | Pipeline stress curves + **Minimax Climate Regret**, FastAPI `/api/stress-test` & `/api/analogs`, Mobile offline cell cache + `decision_logs`/`outcome_reports` queue, and stress pills done. |
-| Phase 5 — Validation, Model Cards & Demo Polish | ✅ Pipeline, Mobile & Docs done *(Expo E2E QA pending)* | ⬜ Pending | LOYO CV, IMERG vs. ERA5 check, bootstrap stability, `docs/MODEL_CARDS.md` (`M1–M8`), EN + Twi SMS/WhatsApp summary export (`sms-export.ts`) & `26` pytest + `3` mobile tests passing. |
-| Phase 6 — Scientific Advancements & Scale-Out | 🟡 Core M8 Done | ⬜ Planned | Normal-conjugate **M8** Bayesian outcome calibration (`models/feedback.py`) + mobile field outcome check done; regional expansion & live Africa's Talking USSD/WhatsApp APIs planned. |
+| Phase 1 — Schema, Ingestion & Context | ✅ Completed | ✅ Completed | Live Supabase schema migrated & seeded with 30 m **iSDAsoil v2**, 30 m **NASA HLS** (`L30`/`S30`), 90 m **Copernicus DEM**, 1 km **MODIS LST**, **ERA5-Land**, and **NASA POWER**. |
+| Phase 2 — Features, M1–M4 & Core Visuals | ✅ Completed | ✅ Completed | Pipeline features (WaPOR `P/ET0`, water deficit, flash-drought decoupling), M1–M4 models, cited `knowledge/*.csv`, and Web Calendar/Map/Scale-Honesty Banner completed. |
+| Phase 3 — M6/M7, Supabase Seed & Comparison UI | ✅ Completed | ✅ Completed | M6 fusion (N-fixation urea bag savings & Harmattan bare-days avoided), M7 Passports, live `5`-cell Supabase seed, and Web/Mobile comparison & Evidence Passport UI completed. |
+| Phase 4 — Stress-Testing, Analogs & Offline Cache | ✅ Completed *(M5 stretch deferred)* | ✅ Completed | Pipeline stress curves + **Minimax Climate Regret**, FastAPI `/api/stress-test` & `/api/analogs`, Web & Mobile offline cell cache + `decision_logs`/`outcome_reports` queue, print view, and PWA Service Worker completed. |
+| Phase 5 — Validation, Model Cards & Demo Polish | ✅ Pipeline, Mobile & Docs done *(Expo E2E QA pending)* | 🟡 Built *(Vercel deploy pending)* | LOYO CV, IMERG vs. ERA5 check, bootstrap stability, `docs/MODEL_CARDS.md` (`M1–M8`), EN + Twi localization (`next-intl`), officer portal (`/officer`), SMS/USSD simulator (`/sms-ussd`), & `26` pytest + `10` web + `3` mobile tests passing. |
+| Phase 6 — Scientific Advancements & Scale-Out | ✅ Core M8 & Live Data Done | ✅ Completed | Normal-conjugate **M8** Bayesian outcome calibration (`models/feedback.py`, `m8-calibration.ts`) + live **Africa's Talking** USSD/SMS & WhatsApp Business API routes (`/api/ussd`, `/api/whatsapp/webhook`, `/api/messaging/dispatch`, `/api/officer/review`) completed. |
 
 ---
 

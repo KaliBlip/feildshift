@@ -5,10 +5,12 @@ import {
   INITIAL_DECISION_LOGS,
   INITIAL_OUTCOME_REPORTS,
   ROTATION_STRATEGIES,
+  SEASONAL_VULNERABILITY_CALENDAR,
   SEASON_FEATURES_BY_CELL,
 } from "@/constants/ashanti-pilot";
 import type {
   DecisionLogRecord,
+  DekadWindowSummary,
   EvidenceGrade,
   EvidencePassport,
   EvidenceTier,
@@ -20,7 +22,10 @@ import type {
 } from "@/types/database";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+const supabaseAnonKey = (
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+)?.trim();
 
 let cachedClient: SupabaseClient | null = null;
 
@@ -55,6 +60,7 @@ export interface PilotWorkspacePayload {
   strategies: RotationStrategySpec[];
   passports: EvidencePassport[];
   seasonFeature: SeasonFeatureSummary;
+  calendarWindows: DekadWindowSummary[];
   syncedAt: string;
 }
 
@@ -90,11 +96,16 @@ function formatDatasetsUsed(raw: unknown): string[] {
     if (item && typeof item === "object") {
       const rec = item as Record<string, unknown>;
       const product =
-        typeof rec.product === "string"
-          ? rec.product
-          : String(rec.dataset_key ?? "Dataset");
-      const mode = typeof rec.retrieval_mode === "string" ? rec.retrieval_mode : "pilot";
-      return `${product} (${mode})`;
+        typeof rec.short_name === "string"
+          ? rec.short_name
+          : typeof rec.product === "string"
+            ? rec.product
+            : String(rec.dataset_key ?? "Dataset");
+      const rk = typeof rec.resolution_km === "number" ? rec.resolution_km : null;
+      const resLabel =
+        rk !== null ? (rk < 1 ? `${Math.round(rk * 1000)} m` : `${rk} km`) : "";
+      const mode = typeof rec.retrieval_mode === "string" ? rec.retrieval_mode : "live";
+      return resLabel ? `${product} (${resLabel}, ${mode})` : `${product} (${mode})`;
     }
     return String(item);
   });
@@ -135,7 +146,8 @@ export function getOfflineCellPayload(cellId: string): PilotWorkspacePayload {
     strategies: ROTATION_STRATEGIES,
     passports: EVIDENCE_PASSPORTS.map((ep) => ({ ...ep, cellId })),
     seasonFeature: SEASON_FEATURES_BY_CELL[cellId] ?? SEASON_FEATURES_BY_CELL.ASH_R05_C05,
-    syncedAt: "2026-11-14T00:00:00Z",
+    calendarWindows: SEASONAL_VULNERABILITY_CALENDAR,
+    syncedAt: "2026-11-15T00:00:00Z",
   };
 }
 
@@ -149,7 +161,7 @@ export async function fetchPilotWorkspaceData(
   }
 
   try {
-    const [stratRes, passRes, featRes] = await Promise.all([
+    const [stratRes, passRes, featRes, cellsRes, dekadRes] = await Promise.all([
       client
         .from("strategy_scores")
         .select(
@@ -168,6 +180,15 @@ export async function fetchPilotWorkspaceData(
         .eq("cell_id", cellId)
         .order("year", { ascending: false })
         .limit(1),
+      client
+        .from("pilot_cells")
+        .select("cell_id, elevation_m, slope_pct, soil_texture, soil_organic_carbon_g_kg, soil_ph"),
+      client
+        .from("dekad_timeseries")
+        .select("dekad, rain_imerg_mm, rain_era5_mm, et0_mm, smap_anomaly_z, ndvi_smooth, ndvi_raw, bare_field_flag, qa_tier")
+        .eq("cell_id", cellId)
+        .eq("year", 2025)
+        .order("dekad", { ascending: true }),
     ]);
 
     const stratRows = stratRes.data;
@@ -229,13 +250,81 @@ export async function fetchPilotWorkspaceData(
         ? (featRes.data[0] as SeasonFeatureSummary)
         : fallback.seasonFeature;
 
+    const dbCellsById = new Map(
+      (Array.isArray(cellsRes.data) ? cellsRes.data : []).map((row) => [String(row.cell_id), row]),
+    );
+    const hydratedCells: PilotCell[] = ASHANTI_PILOT_CELLS.map((cell) => {
+      const dbRow = dbCellsById.get(cell.cell_id);
+      if (!dbRow) return cell;
+      return {
+        ...cell,
+        elevation_m: Number(dbRow.elevation_m ?? cell.elevation_m),
+        slope_pct: Number(dbRow.slope_pct ?? cell.slope_pct),
+        soil_texture: String(dbRow.soil_texture ?? cell.soil_texture),
+        soil_organic_carbon_g_kg: Number(dbRow.soil_organic_carbon_g_kg ?? cell.soil_organic_carbon_g_kg),
+        soil_ph: Number(dbRow.soil_ph ?? cell.soil_ph),
+      };
+    });
+
+    const dekadRows = Array.isArray(dekadRes.data) ? dekadRes.data : [];
+    const calendarWindows: DekadWindowSummary[] =
+      dekadRows.length >= 12
+        ? SEASONAL_VULNERABILITY_CALENDAR.map((baseWin, monthIdx) => {
+            const dStart = monthIdx * 3 + 1;
+            const dEnd = dStart + 2;
+            const group = dekadRows.filter(
+              (r) => Number(r.dekad) >= dStart && Number(r.dekad) <= dEnd,
+            );
+            if (group.length === 0) return baseWin;
+            const rainSum = Math.round(
+              group.reduce(
+                (acc, r) => acc + Number(r.rain_imerg_mm ?? r.rain_era5_mm ?? 0),
+                0,
+              ),
+            );
+            const et0Sum = Math.round(
+              group.reduce((acc, r) => acc + Number(r.et0_mm ?? 0), 0),
+            );
+            const smapMean = Number(
+              (
+                group.reduce((acc, r) => acc + Number(r.smap_anomaly_z ?? 0), 0) /
+                group.length
+              ).toFixed(2),
+            );
+            const ndviMean = Number(
+              (
+                group.reduce(
+                  (acc, r) => acc + Number(r.ndvi_smooth ?? r.ndvi_raw ?? baseWin.ndviSmooth),
+                  0,
+                ) / group.length
+              ).toFixed(2),
+            );
+            const bareRisk = group.some((r) => Boolean(r.bare_field_flag)) || ndviMean < 0.28;
+            const rawTier = String(group[1]?.qa_tier ?? group[0]?.qa_tier ?? baseWin.qaTier);
+            const qaTier: DekadWindowSummary["qaTier"] =
+              rawTier === "low_cloud_gap" || rawTier === "moderate" || rawTier === "high"
+                ? rawTier
+                : baseWin.qaTier;
+            return {
+              ...baseWin,
+              rainMm: rainSum,
+              et0Mm: et0Sum,
+              smapAnomalyZ: smapMean,
+              ndviSmooth: ndviMean,
+              bareFieldRisk: bareRisk,
+              qaTier,
+            };
+          })
+        : fallback.calendarWindows;
+
     const payload: PilotWorkspacePayload = {
       cellId,
       source: "supabase",
-      cells: ASHANTI_PILOT_CELLS,
+      cells: hydratedCells,
       strategies,
       passports,
       seasonFeature: latestFeatureRow,
+      calendarWindows,
       syncedAt: new Date().toISOString(),
     };
 
