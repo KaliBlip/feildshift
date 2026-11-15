@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import MapGL, { Layer, Source } from "react-map-gl/maplibre";
 import type { MapLayerMouseEvent, MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import * as maplibregl from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
+import { isWebGL2Supported } from "@/lib/webgl";
 
 if (typeof window !== "undefined") {
   maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
@@ -95,6 +96,12 @@ export function MapExplorer({
   const [viewport, setViewport] = useState({ longitude: center[0], latitude: center[1], zoom });
   const [hoveredValue, setHoveredValue] = useState<{ layer: MapLayerId; value: number | null; coordinates: [number, number] } | null>(null);
   const [showInfoPanel, setShowInfoPanel] = useState(false);
+  const [webgl2Supported, setWebgl2Supported] = useState<boolean | null>(null);
+  const [mapRuntimeError, setMapRuntimeError] = useState(false);
+
+  useEffect(() => {
+    setWebgl2Supported(isWebGL2Supported());
+  }, []);
 
   const handleViewportChange = useCallback(
     (event: ViewStateChangeEvent) => {
@@ -138,7 +145,7 @@ export function MapExplorer({
     setShowInfoPanel(false);
   }, []);
 
-  if (loadingState === "loading") {
+  if (loadingState === "loading" || webgl2Supported === null) {
     return (
       <div className="map-explorer loading" style={{ height: "600px", position: "relative" }}>
         <div className="map-loading-overlay" role="status" aria-live="polite">
@@ -160,6 +167,160 @@ export function MapExplorer({
     );
   }
 
+  const useFallbackMap = !webgl2Supported || mapRuntimeError;
+
+  const controlsOverlay = (
+    <div className="map-controls" style={{ pointerEvents: "none" }}>
+      <div className="control-group top-left" style={{ pointerEvents: "auto" }}>
+        <LayerControl
+          layers={layers}
+          enabledLayers={enabledLayers}
+          onToggle={onLayerToggle}
+          loadingState={loadingState}
+        />
+      </div>
+
+      <div className="control-group bottom-center" style={{ pointerEvents: "auto" }}>
+        <TimeScrubber
+          timeSteps={timeSteps}
+          selectedTimeStep={selectedTimeStep}
+          onTimeChange={onTimeChange}
+          playing={false}
+          onPlayToggle={() => {}}
+          onStep={() => {}}
+          loadingState={loadingState}
+        />
+      </div>
+
+      <div className="control-group top-right" style={{ pointerEvents: "auto" }}>
+        <ViewportControls
+          zoom={Math.round(viewport.zoom)}
+          onZoomIn={() => {
+            if (useFallbackMap) {
+              setViewport((prev) => ({ ...prev, zoom: Math.min(18, prev.zoom + 1) }));
+              return;
+            }
+            mapRef.current?.zoomIn();
+          }}
+          onZoomOut={() => {
+            if (useFallbackMap) {
+              setViewport((prev) => ({ ...prev, zoom: Math.max(4, prev.zoom - 1) }));
+              return;
+            }
+            mapRef.current?.zoomOut();
+          }}
+          onResetView={() => {
+            if (useFallbackMap) {
+              setViewport({ longitude: center[0], latitude: center[1], zoom: 10 });
+              return;
+            }
+            mapRef.current?.flyTo({ center, zoom: 10, essential: true });
+          }}
+        />
+      </div>
+
+      {showInfoPanel && hoveredValue && (
+        <div className="control-group info-panel" style={{ pointerEvents: "auto" }}>
+          <MapInfoPanel
+            layer={layers.find((l) => l.id === hoveredValue.layer) || null}
+            timeStep={selectedTimeStep}
+            coordinates={hoveredValue.coordinates}
+            value={hoveredValue.value}
+            farmAreaHa={farmAreaHa}
+          />
+        </div>
+      )}
+
+      <div className="control-group bottom-left" style={{ pointerEvents: "auto" }}>
+        <MapLegend
+          layer={layers.find((l) => l.id === enabledLayers[0]) || null}
+          timeStep={selectedTimeStep}
+          visible={enabledLayers.length > 0}
+        />
+      </div>
+    </div>
+  );
+
+  if (useFallbackMap) {
+    const activeLayer = enabledLayers[0] ?? "ndvi";
+    return (
+      <div className="map-explorer" style={{ height: "600px", position: "relative", background: "#0E1A12", overflow: "hidden" }}>
+        <svg
+          viewBox="0 0 800 600"
+          role="img"
+          aria-label="2D vector map fallback for Ashanti Region pilot grid"
+          style={{ width: "100%", height: "100%", display: "block" }}
+          onMouseLeave={handleMouseLeave}
+        >
+          <defs>
+            <pattern id="ashanti-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(138, 171, 142, 0.14)" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="800" height="600" fill="#0E1A12" />
+          <rect width="800" height="600" fill="url(#ashanti-grid)" />
+          <g
+            onMouseEnter={() => {
+              if (enabledLayers.length > 0) {
+                setHoveredValue({
+                  layer: activeLayer,
+                  value: 0.62,
+                  coordinates: [center[0], center[1]],
+                });
+                setShowInfoPanel(true);
+              }
+            }}
+            style={{ cursor: "pointer" }}
+          >
+            {enabledLayers.map((layerId, idx) => (
+              <rect
+                key={layerId}
+                x={310 + idx * 4}
+                y={220 + idx * 4}
+                width="180"
+                height="160"
+                rx="8"
+                fill={LAYER_FILL_COLORS[layerId] ?? "#3670FF"}
+                fillOpacity={0.28}
+                stroke="#8AAB8E"
+                strokeWidth="1.5"
+              />
+            ))}
+            {farmBoundary && (
+              <polygon
+                points="355,260 445,268 438,340 362,332"
+                fill="rgba(31, 178, 107, 0.16)"
+                stroke="#F5F2EB"
+                strokeWidth="2.5"
+                strokeDasharray="8 4"
+              />
+            )}
+            <text x="400" y="305" textAnchor="middle" fill="#F5F2EB" fontSize="13" fontWeight="600">
+              ASH_R05_C05 · {center[1].toFixed(2)}°N, {Math.abs(center[0]).toFixed(2)}°W
+            </text>
+          </g>
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            right: "12px",
+            bottom: "12px",
+            background: "rgba(23, 23, 23, 0.85)",
+            color: "#F5F2EB",
+            padding: "6px 10px",
+            borderRadius: "999px",
+            fontSize: "12px",
+            border: "1px solid rgba(138, 171, 142, 0.35)",
+            pointerEvents: "none",
+          }}
+        >
+          2D Vector Fallback (WebGL2 unavailable)
+        </div>
+        {controlsOverlay}
+      </div>
+    );
+  }
+
   return (
     <div className="map-explorer" style={{ height: "600px", position: "relative" }}>
       <MapGL
@@ -168,6 +329,7 @@ export function MapExplorer({
         onMove={handleViewportChange}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onError={() => setMapRuntimeError(true)}
         mapStyle={MAP_STYLE}
         attributionControl={false}
         style={{ width: "100%", height: "100%" }}
@@ -205,59 +367,7 @@ export function MapExplorer({
           );
         })}
 
-        <div className="map-controls" style={{ pointerEvents: "none" }}>
-          <div className="control-group top-left" style={{ pointerEvents: "auto" }}>
-            <LayerControl
-              layers={layers}
-              enabledLayers={enabledLayers}
-              onToggle={onLayerToggle}
-              loadingState={loadingState}
-            />
-          </div>
-
-          <div className="control-group bottom-center" style={{ pointerEvents: "auto" }}>
-            <TimeScrubber
-              timeSteps={timeSteps}
-              selectedTimeStep={selectedTimeStep}
-              onTimeChange={onTimeChange}
-              playing={false}
-              onPlayToggle={() => {}}
-              onStep={() => {}}
-              loadingState={loadingState}
-            />
-          </div>
-
-          <div className="control-group top-right" style={{ pointerEvents: "auto" }}>
-            <ViewportControls
-              zoom={Math.round(viewport.zoom)}
-              onZoomIn={() => mapRef.current?.zoomIn()}
-              onZoomOut={() => mapRef.current?.zoomOut()}
-              onResetView={() => {
-                mapRef.current?.flyTo({ center, zoom: 10, essential: true });
-              }}
-            />
-          </div>
-
-          {showInfoPanel && hoveredValue && (
-            <div className="control-group info-panel" style={{ pointerEvents: "auto" }}>
-              <MapInfoPanel
-                layer={layers.find((l) => l.id === hoveredValue.layer) || null}
-                timeStep={selectedTimeStep}
-                coordinates={hoveredValue.coordinates}
-                value={hoveredValue.value}
-                farmAreaHa={farmAreaHa}
-              />
-            </div>
-          )}
-
-          <div className="control-group bottom-left" style={{ pointerEvents: "auto" }}>
-            <MapLegend
-              layer={layers.find((l) => l.id === enabledLayers[0]) || null}
-              timeStep={selectedTimeStep}
-              visible={enabledLayers.length > 0}
-            />
-          </div>
-        </div>
+        {controlsOverlay}
       </MapGL>
     </div>
   );
