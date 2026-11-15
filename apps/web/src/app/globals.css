@@ -1,28 +1,35 @@
 @import "tailwindcss";
 
-/* ─── Design Tokens ───────────────────────────────────────────────────── */
+/* ─── Design Tokens (Roofi + Field Shift Brand Palette) ─────────────────── */
 :root {
   --bg:            #ffffff;
-  --fg:            #0e1a12;
-  --fg-muted:      #4a5e50;
-  --forest:        #1a3d28;
-  --forest-mid:    #275d38;
-  --forest-light:  #3a7a50;
-  --sage:          #8aab8e;
-  --sage-light:    #c8dbc9;
-  --sage-pale:     #eef4ee;
-  --blue-accent:   #2d5fa6;
-  --blue-light:    #ddeaf8;
-  --border:        #d8e5d9;
-  --surface:       #f7faf7;
-  --radius-card:   1.25rem;
+  --fg:            #171717;
+  --fg-muted:      #52525b;
+  --forest:        #171717;
+  --forest-mid:    #3670ff;
+  --forest-light:  #5b8bff;
+  --sage:          #3670ff;
+  --sage-light:    #e2e4e9;
+  --sage-pale:     #efefef;
+  --blue-accent:   #3670ff;
+  --blue-light:    #ebf1ff;
+  --gold:          #f9d601;
+  --gold-surface:  #fff9d6;
+  --gold-ink:      #7a6200;
+  --success:       #1fb26b;
+  --success-pale:  #eaf7ef;
+  --border:        #e2e4e9;
+  --surface:       #efefef;
+  --radius-card:   1.5rem;
+  --shadow-card:   0 6px 14px rgba(17, 24, 39, 0.06);
   --nav-h:         68px;
 }
 
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -44,6 +51,7 @@ body {
 
 /* ─── Typography Scale ────────────────────────────────────────────────── */
 .display-xl {
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
   font-size: clamp(2.75rem, 6vw, 5.25rem);
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -51,6 +59,7 @@ body {
 }
 
 .display-lg {
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
   font-size: clamp(2rem, 4vw, 3.5rem);
   font-weight: 700;
   letter-spacing: -0.025em;
@@ -58,6 +67,7 @@ body {
 }
 
 .display-md {
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
   font-size: clamp(1.5rem, 2.5vw, 2.25rem);
   font-weight: 600;
   letter-spacing: -0.02em;
