@@ -92,11 +92,11 @@ export default function WorkspacePage() {
           <AshantiMapExplorer
             selectedCellId={selectedCellId}
             onSelectCell={handleSelectCell}
-            cells={ASHANTI_PILOT_CELLS}
+            cells={payload.cells?.length ? payload.cells : ASHANTI_PILOT_CELLS}
           />
 
           {/* Seasonal Vulnerability & Bare-Field Calendar */}
-          <VulnerabilityCalendar />
+          <VulnerabilityCalendar windows={payload.calendarWindows} />
 
           {/* Strategy Comparison, Monte Carlo & Climate Stress-Test Studio */}
           <StrategyComparisonStudio

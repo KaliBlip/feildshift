@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { assessScale, DATASET_RESOLUTIONS_KM } from "@/lib/constants";
+import { assessScale } from "@/lib/constants";
 import type { ScaleHonestyBannerProps, ScaleAssessmentCardProps, ScaleComparisonVisualProps, ScaleFitBadgeProps } from "./types";
-import type { DatasetScaleAssessment, ScaleFitCategory, MapLayerId } from "@/lib/types";
+import type { ScaleFitCategory, MapLayerId } from "@/lib/types";
 
 const FIT_CONFIG: Record<ScaleFitCategory, { label: string; description: string; color: string; bgColor: string; icon: React.ReactNode }> = {
   suitable: {
@@ -57,10 +57,10 @@ const FIT_CONFIG: Record<ScaleFitCategory, { label: string; description: string;
 };
 
 const LAYER_LABELS: Record<MapLayerId, string> = {
-  ndvi: "NDVI (MODIS)",
-  "soil-moisture": "Soil Moisture (SMAP)",
-  rainfall: "Rainfall (IMERG)",
-  srtm: "Terrain (SRTM)",
+  ndvi: "NDVI (30 m HLS)",
+  "soil-moisture": "Soil Moisture (9 km SMAP/ERA5)",
+  rainfall: "Rainfall (10 km IMERG)",
+  srtm: "Terrain (90 m Copernicus DEM)",
 };
 
 function ScaleFitBadge({ fit, size = "medium" }: ScaleFitBadgeProps) {
@@ -91,7 +91,7 @@ function ScaleFitBadge({ fit, size = "medium" }: ScaleFitBadgeProps) {
   );
 }
 
-function ScaleComparisonVisual({ farmAreaHa, pixelFootprintHa, fit }: ScaleComparisonVisualProps) {
+function ScaleComparisonVisual({ farmAreaHa, pixelFootprintHa }: ScaleComparisonVisualProps) {
   const ratio = pixelFootprintHa / farmAreaHa;
   const farmSize = Math.max(1, Math.min(100, 100 / Math.max(1, ratio)));
   const pixelSize = 100 - farmSize;
@@ -271,7 +271,7 @@ export function ScaleHonestyBanner({
   );
 }
 
-export function ScaleHonestyInline({ farmAreaHa, layerId, layerConfig, compact = true }: {
+export function ScaleHonestyInline({ farmAreaHa, layerId, layerConfig }: {
   farmAreaHa: number | null;
   layerId: string;
   layerConfig: { resolutionKm: number; source: string; version?: string; label: string } | null;
