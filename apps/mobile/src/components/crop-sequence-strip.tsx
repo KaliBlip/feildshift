@@ -2,7 +2,7 @@ import { ArrowRight, Leaf, ShieldAlert, Sprout } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Radii } from '@/constants/theme';
+import { roofiRadii } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -23,8 +23,9 @@ export function CropSequenceStrip({
     .filter(Boolean)
     .slice(0, 3);
 
-  const toneBg = isBaseline ? theme.amberSoft : theme.primarySoft;
-  const toneFg = isBaseline ? theme.amber : theme.primaryText;
+  const toneBg = isBaseline ? theme.gold.surface : theme.personal.surface;
+  const toneFg = isBaseline ? theme.gold.ink : theme.personal.ink;
+  const toneEdge = isBaseline ? theme.gold.edge : theme.personal.edge;
 
   return (
     <View
@@ -32,23 +33,30 @@ export function CropSequenceStrip({
         styles.strip,
         {
           backgroundColor: toneBg,
-          borderColor: isBaseline ? theme.amber : theme.primary,
+          borderColor: toneEdge,
         },
       ]}>
       {steps.map((step, idx) => (
         <View key={`${step}-${idx}`} style={styles.stepGroup}>
           {idx > 0 && <ArrowRight size={13} color={toneFg} />}
-          <View style={[styles.stepPill, { backgroundColor: theme.surface }]}>
+          <View
+            style={[
+              styles.stepPill,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}>
             {idx === 0 ? (
               isBaseline ? (
                 <ShieldAlert size={13} color={toneFg} />
               ) : (
-                <Sprout size={13} color={toneFg} />
+                <Sprout size={13} color={theme.primary} />
               )
             ) : (
-              <Leaf size={13} color={toneFg} />
+              <Leaf size={13} color={theme.sage.edge} />
             )}
-            <ThemedText type="smallBold" style={{ color: theme.text }} numberOfLines={1}>
+            <ThemedText
+              type="smallBold"
+              style={{ color: theme.foreground }}
+              numberOfLines={1}>
               {step}
             </ThemedText>
           </View>
@@ -65,8 +73,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderRadius: Radii.md,
+    paddingVertical: 10,
+    borderRadius: roofiRadii.xl,
     borderWidth: 1,
   },
   stepGroup: {
@@ -77,9 +85,10 @@ const styles = StyleSheet.create({
   stepPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.pill,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.pill,
+    borderWidth: 1,
   },
 });

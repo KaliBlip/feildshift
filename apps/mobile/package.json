@@ -6,6 +6,7 @@
     "@expo/ui": "~58.0.28",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/slider": "5.2.1",
+    "@shopify/react-native-skia": "^2.14.0",
     "expo": "~58.0.25",
     "expo-clipboard": "~58.0.4",
     "expo-constants": "~58.0.16",
@@ -34,7 +35,9 @@
     "react-native-screens": "~4.30.1",
     "react-native-svg": "15.16.0",
     "react-native-web": "~0.21.4",
-    "react-native-worklets": "0.13.0"
+    "react-native-worklets": "0.13.0",
+    "sileo": "^0.1.6",
+    "sileo-native": "^0.1.1"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",

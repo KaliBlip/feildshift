@@ -9,8 +9,16 @@ import {
 } from 'react-native';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 
+import { PlannerIcon } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
-import { CardShadow, Radii, Spacing } from '@/constants/theme';
+import {
+  CardShadow,
+  Radii,
+  roofiRadii,
+  roofiSpacing,
+  roofiTypography,
+  Spacing,
+} from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type AppIconName = SymbolViewProps['name'];
@@ -33,43 +41,73 @@ export function TopSearchRegionHeader({
   return (
     <View
       style={[
-        styles.topHeaderBar,
+        styles.plannerHeaderWrap,
         {
-          backgroundColor: theme.surface,
-          borderBottomColor: theme.border,
+          backgroundColor: theme.background,
         },
       ]}>
+      <View style={styles.plannerHeaderTopRow}>
+        <View style={styles.headerTitleStack}>
+          <Text
+            style={[
+              styles.plannerLabel,
+              { color: theme.secondary },
+            ]}>
+            {`${regionCaption} · ${regionName}`.toUpperCase()}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.plannerScreenTitle,
+              { color: theme.foreground },
+            ]}>
+            FIELD SHIFT
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.regionPillBadge,
+            {
+              backgroundColor: theme.personal.surface,
+              borderColor: theme.personal.edge,
+            },
+          ]}>
+          <PlannerIcon name="pin" size={14} color={theme.primary} />
+          <Text
+            style={[
+              styles.regionPillText,
+              { color: theme.personal.ink },
+            ]}>
+            5×5 KM EO
+          </Text>
+        </View>
+      </View>
+
       <View
         style={[
           styles.searchPill,
-          { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+          {
+            backgroundColor: theme.surfaceSubtle,
+            borderColor: theme.border,
+          },
         ]}>
-        <SymbolView
-          name={{
-            ios: 'magnifyingglass',
-            android: 'search',
-            web: 'search',
-          }}
-          size={16}
-          tintColor={theme.textMuted}
-        />
+        <PlannerIcon name="search" size={17} color={theme.secondary} />
         <TextInput
           value={searchQuery}
           onChangeText={onChangeSearch}
           placeholder={searchPlaceholder}
-          placeholderTextColor={theme.textMuted}
-          style={[styles.searchInput, { color: theme.text }]}
+          placeholderTextColor={theme.secondary}
+          selectionColor={theme.primary}
+          style={[
+            styles.searchInput,
+            {
+              color: theme.foreground,
+              fontFamily: roofiTypography.fontFamily.body,
+            },
+          ]}
           clearButtonMode="while-editing"
         />
-      </View>
-
-      <View style={styles.regionStack}>
-        <ThemedText type="small" themeColor="textMuted">
-          {regionCaption}
-        </ThemedText>
-        <ThemedText type="subtitle" numberOfLines={1}>
-          {regionName}
-        </ThemedText>
       </View>
     </View>
   );
@@ -102,37 +140,46 @@ export function TopBarHeader({
       style={[
         styles.topHeaderBar,
         {
-          backgroundColor: theme.surface,
-          borderBottomColor: theme.border,
+          backgroundColor: theme.background,
         },
       ]}>
       <View style={styles.headerLeftGroup}>
         {leftAction && (
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel={leftAction.accessibilityLabel}
             onPress={leftAction.onPress}
             style={({ pressed }) => [
               styles.iconButton,
-              { backgroundColor: theme.backgroundElement },
+              {
+                backgroundColor: theme.surfaceSubtle,
+                borderColor: theme.border,
+              },
               pressed && styles.pressed,
             ]}>
-            <SymbolView
-              name={leftAction.icon}
-              size={18}
-              tintColor={theme.text}
-            />
+            <PlannerIcon name="back" size={19} color={theme.foreground} />
           </Pressable>
         )}
 
         <View style={styles.headerTitleStack}>
-          <ThemedText type="subtitle" numberOfLines={1}>
-            {title}
-          </ThemedText>
           {subtitle ? (
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-              {subtitle}
-            </ThemedText>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.plannerLabel,
+                { color: theme.secondary },
+              ]}>
+              {subtitle.toUpperCase()}
+            </Text>
           ) : null}
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.plannerScreenTitle,
+              { color: theme.foreground },
+            ]}>
+            {title}
+          </Text>
         </View>
       </View>
 
@@ -143,6 +190,7 @@ export function TopBarHeader({
             return (
               <Pressable
                 key={action.id}
+                accessibilityRole="button"
                 accessibilityLabel={action.accessibilityLabel}
                 onPress={action.onPress}
                 style={({ pressed }) => [
@@ -150,22 +198,31 @@ export function TopBarHeader({
                   {
                     backgroundColor: isPrimary
                       ? theme.primary
-                      : theme.backgroundElement,
+                      : theme.surfaceSubtle,
+                    borderColor: isPrimary ? theme.primary : theme.border,
                   },
                   pressed && styles.pressed,
                 ]}>
-                <SymbolView
-                  name={action.icon}
-                  size={18}
-                  tintColor={isPrimary ? '#FFFFFF' : theme.text}
-                />
+                {isPrimary ? (
+                  <PlannerIcon
+                    name="plus"
+                    size={20}
+                    color={theme.onPrimary}
+                  />
+                ) : (
+                  <SymbolView
+                    name={action.icon}
+                    size={18}
+                    tintColor={theme.foreground}
+                  />
+                )}
                 {action.badgeDot && (
                   <View
                     style={[
                       styles.actionDot,
                       {
                         backgroundColor: theme.primary,
-                        borderColor: theme.surface,
+                        borderColor: theme.background,
                       },
                     ]}
                   />
@@ -197,11 +254,11 @@ export function SegmentedPillBar<T extends string>({
 
   return (
     <View
+      accessibilityRole="tablist"
       style={[
         styles.segmentedContainer,
-        CardShadow,
         {
-          backgroundColor: theme.surface,
+          backgroundColor: theme.surfaceSubtle,
           borderColor: theme.border,
         },
       ]}>
@@ -210,10 +267,19 @@ export function SegmentedPillBar<T extends string>({
         return (
           <Pressable
             key={opt.id}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
             onPress={() => onSelect(opt.id)}
             style={({ pressed }) => [
               styles.segmentedOption,
-              active && { backgroundColor: theme.primary },
+              active && {
+                backgroundColor: theme.surface,
+                shadowColor: theme.foreground,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.06,
+                shadowRadius: 4,
+                elevation: 1,
+              },
               pressed && styles.pressed,
             ]}>
             <Text
@@ -221,8 +287,8 @@ export function SegmentedPillBar<T extends string>({
               style={[
                 styles.segmentedText,
                 {
-                  color: active ? '#FFFFFF' : theme.text,
-                  fontWeight: active ? '600' : '500',
+                  color: active ? theme.foreground : theme.secondary,
+                  fontFamily: roofiTypography.fontFamily.bodyBold,
                 },
               ]}>
               {opt.label}
@@ -257,21 +323,28 @@ export function KpiMetricCard({
           borderColor: theme.border,
         },
       ]}>
-      <View style={[styles.kpiIconBox, { backgroundColor: theme.iconBg }]}>
-        <SymbolView name={icon} size={18} tintColor={theme.textSecondary} />
+      <View
+        style={[
+          styles.kpiIconBox,
+          { backgroundColor: theme.personal.surface },
+        ]}>
+        <SymbolView name={icon} size={18} tintColor={theme.primary} />
       </View>
 
       <View style={styles.kpiBody}>
         <View style={styles.kpiValueRow}>
           <ThemedText type="kpi">{value}</ThemedText>
           {unit ? (
-            <ThemedText type="default" themeColor="textSecondary">
+            <ThemedText type="smallBold" themeColor="secondary">
               {' '}
               {unit}
             </ThemedText>
           ) : null}
         </View>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        <ThemedText
+          type="captionUppercase"
+          themeColor="secondary"
+          numberOfLines={1}>
           {label}
         </ThemedText>
       </View>
@@ -300,8 +373,8 @@ export function HeroStatusCard({
 }) {
   const theme = useTheme();
   const isWarning = statusTone === 'warning';
-  const pillBg = isWarning ? theme.amberSoft : theme.primarySoft;
-  const pillFg = isWarning ? theme.amber : theme.primaryText;
+  const pillBg = isWarning ? theme.gold.surface : theme.sage.surface;
+  const pillFg = isWarning ? theme.gold.ink : theme.sage.ink;
 
   return (
     <View
@@ -321,19 +394,19 @@ export function HeroStatusCard({
           </ThemedText>
           <ThemedText
             type="smallBold"
-            style={{ color: isWarning ? theme.amber : theme.primaryText }}>
+            style={{ color: isWarning ? theme.gold.ink : theme.sage.ink }}>
             {deltaText}
           </ThemedText>
         </View>
 
         <View style={[styles.statusPill, { backgroundColor: pillBg }]}>
-          <ThemedText type="smallBold" style={{ color: pillFg }}>
-            {statusLabel}
+          <ThemedText type="code" style={{ color: pillFg }}>
+            {statusLabel.toUpperCase()}
           </ThemedText>
         </View>
       </View>
 
-      <ThemedText type="default" themeColor="textSecondary">
+      <ThemedText type="default" themeColor="secondary">
         {subtitle}
       </ThemedText>
 
@@ -341,21 +414,13 @@ export function HeroStatusCard({
 
       <View style={styles.heroMetaRow}>
         <View style={styles.heroMetaItem}>
-          <SymbolView
-            name={{
-              ios: 'square.2.layers.3d',
-              android: 'layers',
-              web: 'layers',
-            }}
-            size={14}
-            tintColor={theme.textMuted}
-          />
-          <ThemedText type="small" themeColor="textSecondary">
+          <PlannerIcon name="calendar" size={15} color={theme.secondary} />
+          <ThemedText type="smallBold" themeColor="secondary">
             {metaLeft}
           </ThemedText>
         </View>
 
-        <ThemedText type="small" themeColor="textSecondary">
+        <ThemedText type="small" themeColor="mutedText">
           {metaRight}
         </ThemedText>
       </View>
@@ -435,21 +500,22 @@ export function InteractiveAreaChartCard({
   );
 
   const safeIdx = Math.min(selectedIdx, Math.max(0, points.length - 1));
-  const strokeColor = colorTone === 'amber' ? theme.amber : theme.primary;
+  const strokeColor =
+    colorTone === 'amber' ? theme.warning : theme.primary;
   const fillTint =
-    colorTone === 'amber' ? 'rgba(229, 122, 36, 0.20)' : 'rgba(135, 198, 224, 0.30)';
+    colorTone === 'amber'
+      ? 'rgba(180, 83, 9, 0.16)'
+      : 'rgba(255, 106, 43, 0.18)';
   const fillBottomTint =
-    colorTone === 'amber' ? 'rgba(229, 122, 36, 0.04)' : 'rgba(78, 168, 41, 0.04)';
+    colorTone === 'amber'
+      ? 'rgba(180, 83, 9, 0.03)'
+      : 'rgba(255, 106, 43, 0.03)';
 
   const rawValues = points.map((p) => p.value);
   const minVal =
-    yMin !== undefined
-      ? yMin
-      : Math.floor(Math.min(...rawValues, 0));
+    yMin !== undefined ? yMin : Math.floor(Math.min(...rawValues, 0));
   const maxVal =
-    yMax !== undefined
-      ? yMax
-      : Math.ceil(Math.max(...rawValues, minVal + 1));
+    yMax !== undefined ? yMax : Math.ceil(Math.max(...rawValues, minVal + 1));
   const span = Math.max(1e-6, maxVal - minVal);
 
   const plotHeight = 148;
@@ -487,7 +553,9 @@ export function InteractiveAreaChartCard({
 
   const activePoint = points[safeIdx] ?? { xLabel: '', value: 0 };
   const activeX =
-    points.length > 1 ? (safeIdx / (points.length - 1)) * plotWidth : plotWidth / 2;
+    points.length > 1
+      ? (safeIdx / (points.length - 1)) * plotWidth
+      : plotWidth / 2;
   const activeY = toY(activePoint.value);
   const tooltipLeft = Math.max(4, Math.min(plotWidth - 96, activeX - 46));
   const tooltipTop = Math.max(2, activeY - 46);
@@ -512,20 +580,25 @@ export function InteractiveAreaChartCard({
               return (
                 <Pressable
                   key={tf.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
                   onPress={() => onSelectTimeframe?.(tf.id)}
                   style={({ pressed }) => [
                     styles.timeframePill,
                     {
                       backgroundColor: isActive
-                        ? theme.primary
-                        : theme.backgroundElement,
+                        ? theme.foreground
+                        : theme.surfaceSubtle,
                     },
                     pressed && styles.pressed,
                   ]}>
                   <Text
                     style={[
                       styles.timeframeText,
-                      { color: isActive ? '#FFFFFF' : theme.text },
+                      {
+                        color: isActive ? theme.background : theme.secondary,
+                        fontFamily: roofiTypography.fontFamily.bodyBold,
+                      },
                     ]}>
                     {tf.label}
                   </Text>
@@ -543,9 +616,9 @@ export function InteractiveAreaChartCard({
               key={chip}
               style={[
                 styles.statChip,
-                { backgroundColor: theme.backgroundElement },
+                { backgroundColor: theme.surfaceSubtle },
               ]}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
+              <ThemedText type="code" themeColor="secondary">
                 {chip}
               </ThemedText>
             </View>
@@ -559,7 +632,7 @@ export function InteractiveAreaChartCard({
             <ThemedText
               key={`${tick}-${idx}`}
               type="small"
-              themeColor="textMuted"
+              themeColor="mutedText"
               style={styles.yTickLabel}>
               {tick}
               {unit}
@@ -577,14 +650,16 @@ export function InteractiveAreaChartCard({
                 style={[
                   styles.gridLine,
                   {
-                    top: (idx / Math.max(1, yTicks.length - 1)) * (plotHeight - 16) + 8,
+                    top:
+                      (idx / Math.max(1, yTicks.length - 1)) *
+                        (plotHeight - 16) +
+                      8,
                     backgroundColor: theme.border,
                   },
                 ]}
               />
             ))}
 
-            {/* Soft multi-slice area fill under curve */}
             {smoothCoords.map((pt, idx) => {
               const sliceWidth = plotWidth / smoothCoords.length + 0.8;
               const areaHeight = Math.max(0, plotHeight - pt.y);
@@ -615,7 +690,6 @@ export function InteractiveAreaChartCard({
               );
             })}
 
-            {/* Crisp interpolated line segments */}
             {smoothCoords.slice(0, -1).map((pt, idx) => {
               const next = smoothCoords[idx + 1];
               const dx = next.x - pt.x;
@@ -642,7 +716,6 @@ export function InteractiveAreaChartCard({
               );
             })}
 
-            {/* Vertical dashed crosshair line */}
             <View
               pointerEvents="none"
               style={[
@@ -650,12 +723,11 @@ export function InteractiveAreaChartCard({
                 {
                   left: activeX,
                   height: plotHeight,
-                  borderColor: theme.textMuted,
+                  borderColor: theme.mutedText,
                 },
               ]}
             />
 
-            {/* Floating callout card */}
             <View
               pointerEvents="none"
               style={[
@@ -668,7 +740,7 @@ export function InteractiveAreaChartCard({
                   borderColor: theme.border,
                 },
               ]}>
-              <ThemedText type="small" themeColor="textMuted">
+              <ThemedText type="small" themeColor="mutedText">
                 {activePoint.calloutTitle ?? activePoint.xLabel}
               </ThemedText>
               <ThemedText type="smallBold">
@@ -677,7 +749,6 @@ export function InteractiveAreaChartCard({
               </ThemedText>
             </View>
 
-            {/* Active ring marker */}
             <View
               pointerEvents="none"
               style={[
@@ -691,7 +762,6 @@ export function InteractiveAreaChartCard({
               ]}
             />
 
-            {/* Interactive touch columns */}
             <View style={styles.touchOverlay}>
               {points.map((pt, idx) => (
                 <Pressable
@@ -719,8 +789,11 @@ export function InteractiveAreaChartCard({
                     styles.xAxisLabel,
                     {
                       color:
-                        idx === safeIdx ? theme.text : theme.textMuted,
-                      fontWeight: idx === safeIdx ? '600' : '400',
+                        idx === safeIdx ? theme.foreground : theme.mutedText,
+                      fontFamily:
+                        idx === safeIdx
+                          ? roofiTypography.fontFamily.bodyBold
+                          : roofiTypography.fontFamily.body,
                     },
                   ]}>
                   {showLabel ? pt.xLabel : ''}
@@ -758,26 +831,32 @@ export function SmartInsightCard({
         {
           backgroundColor: theme.surface,
           borderColor: theme.border,
+          borderLeftWidth: 4,
+          borderLeftColor: isAmber ? theme.warning : theme.primary,
         },
       ]}>
       <View
         style={[
           styles.insightIconBadge,
-          { backgroundColor: isAmber ? theme.amberSoft : theme.primarySoft },
+          {
+            backgroundColor: isAmber
+              ? theme.gold.surface
+              : theme.personal.surface,
+          },
         ]}>
         <SymbolView
           name={icon}
           size={19}
-          tintColor={isAmber ? theme.amber : theme.primaryText}
+          tintColor={isAmber ? theme.gold.ink : theme.primary}
         />
       </View>
 
       <View style={styles.insightContent}>
-        <ThemedText type="captionUppercase" themeColor="textMuted">
+        <ThemedText type="captionUppercase" themeColor="secondary">
           {category}
         </ThemedText>
         <ThemedText type="default">{headline}</ThemedText>
-        <ThemedText type="small" themeColor="textMuted">
+        <ThemedText type="small" themeColor="mutedText">
           {footer}
         </ThemedText>
       </View>
@@ -787,14 +866,13 @@ export function SmartInsightCard({
 
 export function FieldParcelBanner({
   badgeText,
-  accentColor = '#38D976',
+  accentColor = '#FF6A2B',
 }: {
   badgeText: string;
   accentColor?: string;
 }) {
   return (
     <View style={styles.aerialCanvas}>
-      {/* Background neighbouring field mosaic */}
       <View style={styles.aerialPatchTopLeft} />
       <View style={styles.aerialPatchTopRight} />
       <View style={styles.aerialPatchBottomLeft} />
@@ -802,13 +880,12 @@ export function FieldParcelBanner({
       <View style={styles.aerialAccessTrackH} />
       <View style={styles.aerialAccessTrackV} />
 
-      {/* Highlighted parcel polygon */}
       <View
         style={[
           styles.aerialPolygon,
           {
             borderColor: accentColor,
-            backgroundColor: 'rgba(56, 217, 118, 0.28)',
+            backgroundColor: 'rgba(255, 106, 43, 0.25)',
           },
         ]}>
         <View style={styles.aerialTagPill}>
@@ -831,12 +908,16 @@ export function ThreeZoneGaugeBar({
   const theme = useTheme();
   const clamped = Math.max(0, Math.min(100, Math.round(scorePercent)));
   const pillColor =
-    clamped < 45 ? theme.amber : clamped < 75 ? theme.primaryText : theme.blue;
+    clamped < 45
+      ? theme.warning
+      : clamped < 75
+        ? theme.primary
+        : theme.success;
   const clampedLeftPct = Math.max(8, Math.min(82, clamped - 7));
 
   return (
     <View style={styles.gaugeWrapper}>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText type="captionUppercase" themeColor="secondary">
         {label}
       </ThemedText>
 
@@ -846,20 +927,20 @@ export function ThreeZoneGaugeBar({
             style={[
               styles.gaugeSegment,
               styles.gaugeSegLeft,
-              { flex: 32, backgroundColor: '#EA8C35' },
+              { flex: 32, backgroundColor: '#F0B35A' },
             ]}
           />
           <View
             style={[
               styles.gaugeSegment,
-              { flex: 38, backgroundColor: '#35A853' },
+              { flex: 38, backgroundColor: '#FF6A2B' },
             ]}
           />
           <View
             style={[
               styles.gaugeSegment,
               styles.gaugeSegRight,
-              { flex: 30, backgroundColor: '#2B7CE9' },
+              { flex: 30, backgroundColor: '#1FB26B' },
             ]}
           />
         </View>
@@ -878,13 +959,13 @@ export function ThreeZoneGaugeBar({
       </View>
 
       <View style={styles.gaugeLabelsRow}>
-        <ThemedText type="small" themeColor="textMuted">
+        <ThemedText type="small" themeColor="mutedText">
           {zoneLabels[0]}
         </ThemedText>
-        <ThemedText type="small" themeColor="textMuted">
+        <ThemedText type="small" themeColor="mutedText">
           {zoneLabels[1]}
         </ThemedText>
-        <ThemedText type="small" themeColor="textMuted">
+        <ThemedText type="small" themeColor="mutedText">
           {zoneLabels[2]}
         </ThemedText>
       </View>
@@ -893,43 +974,81 @@ export function ThreeZoneGaugeBar({
 }
 
 const styles = StyleSheet.create({
+  plannerHeaderWrap: {
+    paddingHorizontal: roofiSpacing[5],
+    paddingTop: roofiSpacing[2],
+    paddingBottom: roofiSpacing[3],
+    gap: roofiSpacing[3],
+  },
+  plannerHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: roofiSpacing[3],
+  },
+  plannerLabel: {
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontSize: roofiTypography.fontSize.label,
+    lineHeight: roofiTypography.lineHeight.label,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  plannerScreenTitle: {
+    fontFamily: roofiTypography.fontFamily.display,
+    fontSize: roofiTypography.fontSize.screenTitle,
+    lineHeight: roofiTypography.lineHeight.screenTitle,
+    fontWeight: '700',
+    letterSpacing: -0.35,
+    textTransform: 'uppercase',
+  },
+  regionPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: roofiRadii.pill,
+    borderWidth: 1,
+  },
+  regionPillText: {
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
   topHeaderBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    gap: Spacing.two,
+    paddingHorizontal: roofiSpacing[5],
+    paddingTop: roofiSpacing[2],
+    paddingBottom: roofiSpacing[3],
+    gap: roofiSpacing[3],
   },
   searchPill: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 40,
-    borderRadius: Radii.pill,
+    minHeight: 44,
+    borderRadius: roofiRadii.pill,
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     gap: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     paddingVertical: 0,
-  },
-  regionStack: {
-    alignItems: 'flex-end',
-    maxWidth: 150,
   },
   headerLeftGroup: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   headerTitleStack: {
     flex: 1,
-    gap: 1,
+    gap: 3,
   },
   headerRightActions: {
     flexDirection: 'row',
@@ -937,61 +1056,65 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: Radii.md,
+    width: 40,
+    height: 40,
+    borderRadius: roofiRadii.pill,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   primaryCircleButton: {
-    width: 38,
-    height: 38,
-    borderRadius: Radii.pill,
+    width: 40,
+    height: 40,
+    borderRadius: roofiRadii.pill,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   actionDot: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 3,
+    right: 3,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
     borderWidth: 1.5,
   },
   segmentedContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 24,
+    borderRadius: roofiRadii.pill,
     borderWidth: 1,
     padding: 4,
-    gap: 2,
+    gap: 4,
   },
   segmentedOption: {
     flex: 1,
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderRadius: 20,
+    minHeight: 38,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: roofiRadii.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   segmentedText: {
-    fontSize: 12.5,
+    fontSize: 13,
+    fontWeight: '700',
   },
   kpiCard: {
     flex: 1,
     minWidth: '47%',
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
+    padding: roofiSpacing[4],
     gap: 12,
   },
   kpiIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: Radii.md,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1004,10 +1127,10 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   card: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
-    gap: 10,
+    padding: roofiSpacing[4],
+    gap: 12,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -1023,13 +1146,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   heroUnit: {
+    fontFamily: roofiTypography.fontFamily.bodyBold,
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   statusPill: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: Radii.sm,
+    borderRadius: roofiRadii.pill,
   },
   divider: {
     height: 1,
@@ -1056,16 +1180,19 @@ const styles = StyleSheet.create({
   timeframeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   timeframePill: {
-    paddingHorizontal: 10,
+    minHeight: 32,
+    paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: Radii.xs,
+    borderRadius: roofiRadii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   timeframeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   statChipsRow: {
     flexDirection: 'row',
@@ -1074,8 +1201,8 @@ const styles = StyleSheet.create({
   },
   statChip: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: Radii.xs,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.pill,
   },
   chartBody: {
     flexDirection: 'row',
@@ -1115,10 +1242,10 @@ const styles = StyleSheet.create({
   },
   calloutBubble: {
     position: 'absolute',
-    minWidth: 74,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.sm,
+    minWidth: 78,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.lg,
     borderWidth: 1,
     alignItems: 'center',
     zIndex: 5,
@@ -1157,15 +1284,15 @@ const styles = StyleSheet.create({
   insightCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
+    padding: roofiSpacing[4],
     gap: 12,
   },
   insightIconBadge: {
     width: 42,
     height: 42,
-    borderRadius: Radii.md,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1249,22 +1376,23 @@ const styles = StyleSheet.create({
     borderRadius: Radii.xs,
   },
   aerialTagText: {
+    fontFamily: roofiTypography.fontFamily.bodyBold,
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   gaugeWrapper: {
     gap: 6,
   },
   gaugeTrackArea: {
-    height: 22,
+    height: 24,
     justifyContent: 'center',
     position: 'relative',
   },
   gaugeTrackRow: {
     height: 8,
     flexDirection: 'row',
-    borderRadius: Radii.pill,
+    borderRadius: roofiRadii.pill,
     overflow: 'hidden',
     gap: 2,
   },
@@ -1272,21 +1400,22 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   gaugeSegLeft: {
-    borderTopLeftRadius: Radii.pill,
-    borderBottomLeftRadius: Radii.pill,
+    borderTopLeftRadius: roofiRadii.pill,
+    borderBottomLeftRadius: roofiRadii.pill,
   },
   gaugeSegRight: {
-    borderTopRightRadius: Radii.pill,
-    borderBottomRightRadius: Radii.pill,
+    borderTopRightRadius: roofiRadii.pill,
+    borderBottomRightRadius: roofiRadii.pill,
   },
   gaugeMarkerPill: {
     position: 'absolute',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 2,
-    borderRadius: Radii.pill,
+    borderRadius: roofiRadii.pill,
     borderWidth: 2,
   },
   gaugeMarkerText: {
+    fontFamily: roofiTypography.fontFamily.bodyBold,
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',

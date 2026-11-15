@@ -1,10 +1,10 @@
-import { SymbolView } from 'expo-symbols';
 import { PropsWithChildren, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
+import { PlannerIcon } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
-import { CardShadow, Radii, Spacing } from '@/constants/theme';
+import { CardShadow, roofiRadii, roofiSpacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function Collapsible({
@@ -25,24 +25,29 @@ export function Collapsible({
         },
       ]}>
       <Pressable
-        style={({ pressed }) => [styles.heading, pressed && styles.pressedHeading]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isOpen }}
+        style={({ pressed }) => [
+          styles.heading,
+          pressed && styles.pressedHeading,
+        ]}
         onPress={() => setIsOpen((value) => !value)}>
         <View
           style={[
             styles.button,
-            { backgroundColor: isOpen ? theme.primarySoft : theme.iconBg },
+            {
+              backgroundColor: isOpen
+                ? theme.personal.surface
+                : theme.surfaceSubtle,
+            },
           ]}>
-          <SymbolView
-            name={{
-              ios: 'chevron.right',
-              android: 'chevron_right',
-              web: 'chevron_right',
-            }}
-            size={13}
-            weight="bold"
-            tintColor={isOpen ? theme.primaryText : theme.textSecondary}
-            style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
-          />
+          <View style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}>
+            <PlannerIcon
+              name="chevron"
+              size={15}
+              color={isOpen ? theme.primary : theme.secondary}
+            />
+          </View>
         </View>
 
         <ThemedText type="smallBold" style={styles.titleText}>
@@ -55,7 +60,7 @@ export function Collapsible({
             style={[
               styles.content,
               {
-                backgroundColor: theme.backgroundElement,
+                backgroundColor: theme.surfaceSubtle,
               },
             ]}>
             {children}
@@ -68,9 +73,9 @@ export function Collapsible({
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
+    padding: roofiSpacing[4],
   },
   heading: {
     flexDirection: 'row',
@@ -81,9 +86,9 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   button: {
-    width: 28,
-    height: 28,
-    borderRadius: Radii.xs,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -92,7 +97,7 @@ const styles = StyleSheet.create({
   },
   content: {
     marginTop: 10,
-    borderRadius: Radii.md,
+    borderRadius: roofiRadii.xl,
     padding: 12,
   },
 });

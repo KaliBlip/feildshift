@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AshantiMapPreview } from '@/components/ashanti-map-preview';
@@ -7,23 +7,25 @@ import {
   type ChartPoint,
   InteractiveAreaChartCard,
   KpiMetricCard,
-  SegmentedPillBar,
   SmartInsightCard,
   TopSearchRegionHeader,
 } from '@/components/design-system';
 import { ScaleFootprintDiagram } from '@/components/scale-footprint-diagram';
 import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
+import { Heading, Label } from '@/components/ui';
 import { evaluateMobileScaleHonesty } from '@/constants/pilot-data';
 import {
   BottomTabInset,
   CardShadow,
   MaxContentWidth,
-  Radii,
-  Spacing,
+  roofiRadii,
+  roofiSpacing,
+  roofiTypography,
 } from '@/constants/theme';
 import { usePilotState } from '@/hooks/use-pilot-state';
 import { useTheme } from '@/hooks/use-theme';
+import { toast } from '@/lib/toast';
 
 const CELL_METRICS: Record<
   string,
@@ -49,7 +51,7 @@ const CELL_METRICS: Record<
     soilTempC: '24',
     canopyPct: '71',
     insight:
-      'Higher upland rainfall (1,380 mm) increases runoff on 7.2% slopes — cover mulch strongly lowers soil wash.',
+      'Higher upland rainfall (1,426 mm) increases runoff on 3.68% slopes — cover mulch strongly lowers soil wash.',
   },
   ASH_R06_C06: {
     soilMoisturePct: '47',
@@ -58,6 +60,22 @@ const CELL_METRICS: Record<
     canopyPct: '62',
     insight:
       'Faster drainage in sandy loam soils calls for early drought-tolerant planting windows in late March.',
+  },
+  ASH_R05_C04: {
+    soilMoisturePct: '54',
+    airTempC: '29',
+    soilTempC: '25',
+    canopyPct: '69',
+    insight:
+      'Gentle 0.72% terrain slope in Akomadan-Offinso retains moisture well for maize-soybean relay sequences.',
+  },
+  ASH_R04_C05: {
+    soilMoisturePct: '55',
+    airTempC: '28',
+    soilTempC: '24',
+    canopyPct: '70',
+    insight:
+      'Rich 11.2 g/kg organic carbon in Sekyere Central supports high-residue mucuna cover during Harmattan.',
   },
 };
 
@@ -131,6 +149,17 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [timeframeId, setTimeframeId] = useState<HomeTimeframeId>('maj');
 
+  const handleSelectCell = (cellId: string) => {
+    selectCell(cellId);
+    const target = cells.find((c) => c.cellId === cellId);
+    if (target) {
+      toast.info(
+        `Switched to ${target.cellId}`,
+        `${target.zoneName} · ${target.soilTexture} (pH ${target.soilPh})`,
+      );
+    }
+  };
+
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
     const trimmed = text.trim().toLowerCase();
@@ -142,16 +171,12 @@ export default function HomeScreen() {
           c.soilTexture.toLowerCase().includes(trimmed),
       );
       if (match && match.cellId !== selectedCell.cellId) {
-        selectCell(match.cellId);
+        handleSelectCell(match.cellId);
       }
     }
   };
 
   const kpis = CELL_METRICS[selectedCell.cellId] ?? CELL_METRICS.ASH_R05_C05;
-  const soilOptions = cells.map((c) => ({
-    id: c.cellId,
-    label: c.soilTexture.replace('Sandy clay loam', 'Sandy clay'),
-  }));
   const scaleAssessment = evaluateMobileScaleHonesty(farmAreaHa);
 
   return (
@@ -161,9 +186,9 @@ export default function HomeScreen() {
       <TopSearchRegionHeader
         searchQuery={searchQuery}
         onChangeSearch={handleSearchChange}
-        searchPlaceholder="Search soil or cell"
-        regionCaption="Region"
-        regionName="Ashanti, Ghana"
+        searchPlaceholder="Search soil, district, or cell"
+        regionCaption="Ashanti Region"
+        regionName="Ghana"
       />
 
       <ScrollView
@@ -171,16 +196,80 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}>
         <SyncStatusPill />
 
-        <SegmentedPillBar
-          options={soilOptions}
-          selectedId={selectedCell.cellId}
-          onSelect={selectCell}
-        />
+        {/* Autis Planner Horizontal Workspace / Cell Switcher */}
+        <View style={styles.workspaceSwitcherWrap}>
+          <View style={styles.workspaceSwitcherHeader}>
+            <Label>PILOT WORKSPACE CELL</Label>
+            <Text
+              style={[
+                styles.workspaceRoleText,
+                { color: theme.secondary },
+              ]}>
+              {selectedCell.soilTexture} · pH {selectedCell.soilPh}
+            </Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.workspacePillsRow}>
+            {cells.map((cell) => {
+              const selected = cell.cellId === selectedCell.cellId;
+              const shortDistrict = cell.zoneName.split(' ')[0];
+              return (
+                <Pressable
+                  key={cell.cellId}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={cell.zoneName}
+                  onPress={() => handleSelectCell(cell.cellId)}
+                  style={[
+                    styles.workspacePill,
+                    {
+                      backgroundColor: selected
+                        ? theme.foreground
+                        : theme.surface,
+                      borderColor: selected ? theme.foreground : theme.border,
+                    },
+                  ]}>
+                  <View
+                    style={[
+                      styles.workspaceInitialBox,
+                      {
+                        backgroundColor: selected
+                          ? theme.surfaceSubtle
+                          : theme.personal.surface,
+                      },
+                    ]}>
+                    <Text
+                      style={[
+                        styles.workspaceInitialText,
+                        { color: theme.primary },
+                      ]}>
+                      {shortDistrict.slice(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.workspacePillLabel,
+                      {
+                        color: selected
+                          ? theme.background
+                          : theme.foreground,
+                      },
+                    ]}>
+                    {shortDistrict} · {cell.cellId.replace('ASH_', '')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <AshantiMapPreview
           cells={cells}
           selectedCellId={selectedCell.cellId}
-          onSelectCell={selectCell}
+          onSelectCell={handleSelectCell}
         />
 
         <View style={styles.kpiGrid}>
@@ -203,7 +292,7 @@ export default function HomeScreen() {
               }}
               value={kpis.airTempC}
               unit="°C"
-              label="Air temp"
+              label="Air Temp"
             />
           </View>
           <View style={styles.kpiRow}>
@@ -231,7 +320,7 @@ export default function HomeScreen() {
         </View>
 
         <InteractiveAreaChartCard
-          title="Soil moisture"
+          title="Soil Moisture Trajectory"
           points={MOISTURE_SERIES[timeframeId]}
           unit="%"
           colorTone="green"
@@ -244,17 +333,23 @@ export default function HomeScreen() {
         />
 
         <View style={styles.sectionHeader}>
-          <ThemedText type="sectionTitle">Smart Insights</ThemedText>
-          <ThemedText type="small" themeColor="textMuted">
-            {selectedCell.cellId}
-          </ThemedText>
+          <Heading title="Smart Insights" />
+          <View
+            style={[
+              styles.countBadge,
+              { backgroundColor: theme.surfaceSubtle },
+            ]}>
+            <ThemedText type="code" themeColor="secondary">
+              {selectedCell.cellId}
+            </ThemedText>
+          </View>
         </View>
 
         <SmartInsightCard
           icon={{ ios: 'leaf', android: 'eco', web: 'eco' }}
-          category="SOIL STATUS"
+          category="SOIL & ROTATION STATUS"
           headline={kpis.insight}
-          footer={`Baseline 2015-2025 · Slope ${selectedCell.slopePct}% · pH ${selectedCell.soilPh}`}
+          footer={`Baseline 2022–2025 · Slope ${selectedCell.slopePct}% · pH ${selectedCell.soilPh}`}
           tone="green"
         />
 
@@ -269,10 +364,8 @@ export default function HomeScreen() {
           ]}>
           <View style={styles.scaleHeader}>
             <View style={styles.flexOne}>
-              <ThemedText type="captionUppercase" themeColor="textMuted">
-                SCALE HONESTY CHECK
-              </ThemedText>
-              <ThemedText type="smallBold">
+              <Label>SCALE HONESTY CHECK</Label>
+              <ThemedText type="sectionTitle">
                 Your farm: {farmAreaHa.toFixed(1)} ha (
                 {(farmAreaHa / 100).toFixed(3)} km²)
               </ThemedText>
@@ -280,24 +373,34 @@ export default function HomeScreen() {
 
             <View style={styles.stepperGroup}>
               <Pressable
+                accessibilityRole="button"
                 accessibilityLabel="Decrease farm area"
                 onPress={() => setFarmAreaHa(farmAreaHa - 0.5)}
                 style={({ pressed }) => [
                   styles.stepperBtn,
-                  { backgroundColor: theme.backgroundElement },
+                  {
+                    backgroundColor: theme.surfaceSubtle,
+                    borderColor: theme.border,
+                  },
                   pressed && styles.pressed,
                 ]}>
                 <ThemedText type="smallBold">−</ThemedText>
               </Pressable>
               <Pressable
+                accessibilityRole="button"
                 accessibilityLabel="Increase farm area"
                 onPress={() => setFarmAreaHa(farmAreaHa + 0.5)}
                 style={({ pressed }) => [
                   styles.stepperBtn,
-                  { backgroundColor: theme.primarySoft },
+                  {
+                    backgroundColor: theme.primary,
+                    borderColor: theme.primary,
+                  },
                   pressed && styles.pressed,
                 ]}>
-                <ThemedText type="smallBold" style={{ color: theme.primaryText }}>
+                <ThemedText
+                  type="smallBold"
+                  style={{ color: theme.onPrimary }}>
                   +
                 </ThemedText>
               </Pressable>
@@ -314,7 +417,7 @@ export default function HomeScreen() {
               <View key={entry.dataset} style={styles.scaleRow}>
                 <ThemedText
                   type="small"
-                  themeColor="textSecondary"
+                  themeColor="secondary"
                   style={styles.flexOne}
                   numberOfLines={1}>
                   {entry.dataset}
@@ -324,14 +427,14 @@ export default function HomeScreen() {
                     styles.scaleBadge,
                     {
                       backgroundColor: isField
-                        ? theme.primarySoft
-                        : theme.backgroundElement,
+                        ? theme.sage.surface
+                        : theme.surfaceSubtle,
                     },
                   ]}>
                   <ThemedText
                     type="code"
                     style={{
-                      color: isField ? theme.primaryText : theme.textSecondary,
+                      color: isField ? theme.sage.ink : theme.secondary,
                     }}>
                     {TIER_LABELS[entry.advisoryTier]}
                   </ThemedText>
@@ -351,17 +454,60 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: roofiSpacing[5],
+    paddingTop: roofiSpacing[2],
+    paddingBottom: BottomTabInset + roofiSpacing[6],
+    gap: roofiSpacing[4],
+  },
+  workspaceSwitcherWrap: {
+    gap: 10,
+  },
+  workspaceSwitcherHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  workspaceRoleText: {
+    fontFamily: roofiTypography.fontFamily.body,
+    fontSize: 12,
+  },
+  workspacePillsRow: {
+    gap: 8,
+  },
+  workspacePill: {
+    minHeight: 42,
+    maxWidth: 210,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 14,
+    borderRadius: roofiRadii.pill,
+    borderWidth: 1,
+  },
+  workspaceInitialBox: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  workspaceInitialText: {
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  workspacePillLabel: {
+    flexShrink: 1,
+    fontFamily: roofiTypography.fontFamily.bodyBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   kpiGrid: {
-    gap: 10,
+    gap: 12,
   },
   kpiRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -369,27 +515,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2,
   },
+  countBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: roofiRadii.pill,
+  },
   scaleCard: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
-    gap: 10,
+    padding: roofiSpacing[4],
+    gap: 12,
   },
   scaleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.two,
+    gap: roofiSpacing[2],
   },
-  flexOne: { flex: 1 },
+  flexOne: { flex: 1, gap: 2 },
   stepperGroup: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
   },
   stepperBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: Radii.sm,
+    width: 36,
+    height: 36,
+    borderRadius: roofiRadii.pill,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -401,12 +553,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.two,
+    gap: roofiSpacing[2],
   },
   scaleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radii.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: roofiRadii.pill,
   },
   pressed: { opacity: 0.75 },
 });

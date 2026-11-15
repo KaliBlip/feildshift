@@ -13,21 +13,24 @@ import {
 } from '@/components/design-system';
 import { SyncStatusPill } from '@/components/sync-status-pill';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/ui';
 import { SEASONAL_VULNERABILITY_CALENDAR } from '@/constants/pilot-data';
 import {
   BottomTabInset,
   CardShadow,
   MaxContentWidth,
-  Radii,
-  Spacing,
+  roofiRadii,
+  roofiSpacing,
+  roofiTypography,
 } from '@/constants/theme';
 import { usePilotState } from '@/hooks/use-pilot-state';
 import { useTheme } from '@/hooks/use-theme';
+import { toast } from '@/lib/toast';
 
 type CalendarFilter = 'all' | 'bare' | 'cloud';
 
 const FILTER_OPTIONS = [
-  { id: 'all', label: 'Year' },
+  { id: 'all', label: 'All Windows' },
   { id: 'bare', label: 'Bare Risk' },
   { id: 'cloud', label: 'Cloud QA' },
 ] as const;
@@ -50,6 +53,20 @@ export default function CalendarScreen() {
     const idx = cells.findIndex((c) => c.cellId === selectedCell.cellId);
     const next = cells[(idx + 1) % cells.length];
     selectCell(next.cellId);
+    toast.info(
+      `Cell ${next.cellId}`,
+      `${next.zoneName} · 36-dekad vulnerability calendar`,
+    );
+  };
+
+  const handleFilterSelect = (nextFilter: CalendarFilter) => {
+    setFilter(nextFilter);
+    if (nextFilter === 'bare') {
+      toast.warning(
+        `${bareCount} bare-soil exposure windows`,
+        'NDVI < 0.28 flagged for Harmattan wind & onset splash erosion.',
+      );
+    }
   };
 
   const filteredWindows = SEASONAL_VULNERABILITY_CALENDAR.filter((item) => {
@@ -84,11 +101,11 @@ export default function CalendarScreen() {
       label: w.monthLabel,
       spacing: 2,
       labelWidth: 26,
-      frontColor: w.bareFieldRisk ? theme.amber : theme.primary,
+      frontColor: w.bareFieldRisk ? theme.primary : theme.sage.edge,
     },
     {
       value: ET0_BY_MONTH[idx],
-      frontColor: theme.blue,
+      frontColor: theme.pair.edge,
     },
   ]);
 
@@ -117,7 +134,13 @@ export default function CalendarScreen() {
               android: 'more_vert',
               web: 'more_vert',
             },
-            onPress: () => setFilter('all'),
+            onPress: () => {
+              setFilter('all');
+              toast.info(
+                'Calendar filter reset',
+                'Showing all 12 monthly dekad windows.',
+              );
+            },
             accessibilityLabel: 'Reset calendar filter',
           },
         ]}
@@ -140,7 +163,7 @@ export default function CalendarScreen() {
           statusTone={filter === 'bare' ? 'warning' : 'optimal'}
           subtitle="Canopy Greenness & Moisture Window"
           metaLeft={selectedCell.cellId}
-          metaRight="36-dekad baseline"
+          metaRight="36-DEKAD BASELINE"
         />
 
         <DekadHeatmapMatrix windows={SEASONAL_VULNERABILITY_CALENDAR} />
@@ -153,23 +176,35 @@ export default function CalendarScreen() {
           ]}>
           <View style={styles.windowTopRow}>
             <ThemedText type="sectionTitle">Rainfall vs. ET₀ Demand</ThemedText>
-            <ThemedText type="code" themeColor="textMuted">
-              mm / month
+            <ThemedText type="code" themeColor="mutedText">
+              MM / MONTH
             </ThemedText>
           </View>
           <View style={styles.statChipsRow}>
-            <View style={[styles.miniChip, { backgroundColor: theme.primarySoft }]}>
-              <ThemedText type="code" style={{ color: theme.primaryText }}>
+            <View
+              style={[
+                styles.miniChip,
+                { backgroundColor: theme.sage.surface },
+              ]}>
+              <ThemedText type="code" style={{ color: theme.sage.ink }}>
                 Rain (Wet)
               </ThemedText>
             </View>
-            <View style={[styles.miniChip, { backgroundColor: theme.amberSoft }]}>
-              <ThemedText type="code" style={{ color: theme.amber }}>
+            <View
+              style={[
+                styles.miniChip,
+                { backgroundColor: theme.personal.surface },
+              ]}>
+              <ThemedText type="code" style={{ color: theme.personal.ink }}>
                 Rain (Bare Dip)
               </ThemedText>
             </View>
-            <View style={[styles.miniChip, { backgroundColor: theme.blueSoft }]}>
-              <ThemedText type="code" style={{ color: theme.blue }}>
+            <View
+              style={[
+                styles.miniChip,
+                { backgroundColor: theme.pair.surface },
+              ]}>
+              <ThemedText type="code" style={{ color: theme.pair.ink }}>
                 ET₀ Demand
               </ThemedText>
             </View>
@@ -185,15 +220,23 @@ export default function CalendarScreen() {
             height={145}
             xAxisThickness={0}
             yAxisThickness={0}
-            yAxisTextStyle={{ color: theme.textMuted, fontSize: 10 }}
-            xAxisLabelTextStyle={{ color: theme.textSecondary, fontSize: 10 }}
+            yAxisTextStyle={{
+              color: theme.mutedText,
+              fontFamily: roofiTypography.fontFamily.body,
+              fontSize: 10,
+            }}
+            xAxisLabelTextStyle={{
+              color: theme.secondary,
+              fontFamily: roofiTypography.fontFamily.bodyBold,
+              fontSize: 10,
+            }}
           />
         </View>
 
         <SegmentedPillBar
           options={FILTER_OPTIONS}
           selectedId={filter}
-          onSelect={setFilter}
+          onSelect={handleFilterSelect}
         />
 
         <InteractiveAreaChartCard
@@ -219,12 +262,16 @@ export default function CalendarScreen() {
         />
 
         <View style={styles.sectionRow}>
-          <ThemedText type="sectionTitle">
-            Dekad Windows ({filteredWindows.length})
-          </ThemedText>
-          <ThemedText type="small" themeColor="textMuted">
-            NDVI &lt; 0.28 flagged bare
-          </ThemedText>
+          <Heading title="Dekad Windows" />
+          <View
+            style={[
+              styles.countBadge,
+              { backgroundColor: theme.surfaceSubtle },
+            ]}>
+            <ThemedText type="code" themeColor="secondary">
+              {filteredWindows.length} · NDVI &lt; 0.28 BARE
+            </ThemedText>
+          </View>
         </View>
 
         {filteredWindows.map((win) => (
@@ -236,14 +283,18 @@ export default function CalendarScreen() {
               {
                 backgroundColor: theme.surface,
                 borderColor: theme.border,
+                borderLeftWidth: win.bareFieldRisk ? 4 : 1,
+                borderLeftColor: win.bareFieldRisk
+                  ? theme.primary
+                  : theme.border,
               },
             ]}>
             <View style={styles.windowTopRow}>
               <View style={styles.flexOne}>
-                <ThemedText type="smallBold">
+                <ThemedText type="sectionTitle">
                   {win.monthLabel} · {win.dekadRange}
                 </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
+                <ThemedText type="small" themeColor="secondary">
                   {win.seasonLabel}
                 </ThemedText>
               </View>
@@ -253,19 +304,21 @@ export default function CalendarScreen() {
                   <View
                     style={[
                       styles.badge,
-                      { backgroundColor: theme.amberSoft },
+                      { backgroundColor: theme.personal.surface },
                     ]}>
-                    <ThemedText type="code" style={{ color: theme.amber }}>
-                      Bare risk
+                    <ThemedText
+                      type="code"
+                      style={{ color: theme.personal.ink }}>
+                      BARE RISK
                     </ThemedText>
                   </View>
                 )}
                 <View
                   style={[
                     styles.badge,
-                    { backgroundColor: theme.backgroundElement },
+                    { backgroundColor: theme.surfaceSubtle },
                   ]}>
-                  <ThemedText type="code" themeColor="textSecondary">
+                  <ThemedText type="code" themeColor="secondary">
                     {QA_TIER_LABELS[win.qaTier]}
                   </ThemedText>
                 </View>
@@ -276,18 +329,18 @@ export default function CalendarScreen() {
               <View
                 style={[
                   styles.miniChip,
-                  { backgroundColor: theme.backgroundElement },
+                  { backgroundColor: theme.surfaceSubtle },
                 ]}>
-                <ThemedText type="code" themeColor="textSecondary">
+                <ThemedText type="code" themeColor="secondary">
                   Rain {win.rainMm} mm ({win.rainReliability})
                 </ThemedText>
               </View>
               <View
                 style={[
                   styles.miniChip,
-                  { backgroundColor: theme.backgroundElement },
+                  { backgroundColor: theme.surfaceSubtle },
                 ]}>
-                <ThemedText type="code" themeColor="textSecondary">
+                <ThemedText type="code" themeColor="secondary">
                   SMAP z={win.smapAnomalyZ >= 0 ? '+' : ''}
                   {win.smapAnomalyZ.toFixed(2)}
                 </ThemedText>
@@ -295,15 +348,15 @@ export default function CalendarScreen() {
               <View
                 style={[
                   styles.miniChip,
-                  { backgroundColor: theme.primarySoft },
+                  { backgroundColor: theme.sage.surface },
                 ]}>
-                <ThemedText type="code" style={{ color: theme.primaryText }}>
+                <ThemedText type="code" style={{ color: theme.sage.ink }}>
                   NDVI {win.ndviSmooth.toFixed(2)}
                 </ThemedText>
               </View>
             </View>
 
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="default" themeColor="secondary">
               {win.summaryNote}
             </ThemedText>
           </View>
@@ -319,10 +372,10 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.three,
+    paddingHorizontal: roofiSpacing[5],
+    paddingTop: roofiSpacing[2],
+    paddingBottom: BottomTabInset + roofiSpacing[6],
+    gap: roofiSpacing[4],
   },
   sectionRow: {
     flexDirection: 'row',
@@ -330,27 +383,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 2,
   },
+  countBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: roofiRadii.pill,
+  },
   windowCard: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
-    gap: 10,
+    padding: roofiSpacing[4],
+    gap: 12,
   },
   windowTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: Spacing.two,
+    gap: roofiSpacing[2],
   },
-  flexOne: { flex: 1 },
+  flexOne: { flex: 1, gap: 2 },
   badgeColumn: {
     alignItems: 'flex-end',
     gap: 4,
   },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radii.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: roofiRadii.pill,
   },
   statChipsRow: {
     flexDirection: 'row',
@@ -358,8 +416,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   miniChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: roofiRadii.pill,
   },
 });

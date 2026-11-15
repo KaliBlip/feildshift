@@ -1,10 +1,10 @@
-import { MapPin } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polygon } from 'react-native-maps';
 
+import { PlannerIcon } from '@/components/icons';
 import { ThemedText } from '@/components/themed-text';
 import type { PilotCellSummary } from '@/constants/pilot-data';
-import { CardShadow, Radii, Spacing } from '@/constants/theme';
+import { CardShadow, roofiRadii, roofiSpacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export interface AshantiMapPreviewProps {
@@ -44,15 +44,22 @@ export function AshantiMapPreview({
       ]}>
       <View style={styles.headerRow}>
         <View style={styles.titleRow}>
-          <MapPin size={15} color={theme.primaryText} />
-          <ThemedText type="smallBold">Ashanti 5×5 km Grid Map</ThemedText>
+          <View
+            style={[
+              styles.iconChip,
+              { backgroundColor: theme.personal.surface },
+            ]}>
+            <PlannerIcon name="pin" size={14} color={theme.primary} />
+          </View>
+          <ThemedText type="sectionTitle">Ashanti 5×5 km Grid Map</ThemedText>
         </View>
-        <ThemedText type="code" themeColor="textMuted">
-          {activeCell.centreLat.toFixed(3)}°N, {Math.abs(activeCell.centreLon).toFixed(3)}°W
+        <ThemedText type="code" themeColor="mutedText">
+          {activeCell.centreLat.toFixed(3)}°N,{' '}
+          {Math.abs(activeCell.centreLon).toFixed(3)}°W
         </ThemedText>
       </View>
 
-      <View style={styles.mapFrame}>
+      <View style={[styles.mapFrame, { borderColor: theme.border }]}>
         <MapView
           style={styles.map}
           initialRegion={{
@@ -67,11 +74,11 @@ export function AshantiMapPreview({
               <Polygon
                 key={`poly-${cell.cellId}`}
                 coordinates={cellSquareCoords(cell)}
-                strokeColor={isSelected ? theme.primary : theme.amber}
+                strokeColor={isSelected ? theme.primary : theme.sage.edge}
                 fillColor={
                   isSelected
-                    ? 'rgba(78, 168, 41, 0.28)'
-                    : 'rgba(229, 122, 36, 0.14)'
+                    ? 'rgba(255, 106, 43, 0.26)'
+                    : 'rgba(31, 178, 107, 0.16)'
                 }
                 strokeWidth={isSelected ? 2.5 : 1.5}
                 tappable
@@ -88,15 +95,18 @@ export function AshantiMapPreview({
               }}
               title={cell.cellId}
               description={`${cell.zoneName} · Slope ${cell.slopePct}%`}
-              pinColor={cell.cellId === selectedCellId ? '#4EA829' : '#E57A24'}
+              pinColor={
+                cell.cellId === selectedCellId ? '#FF6A2B' : '#1FB26B'
+              }
               onPress={() => onSelectCell(cell.cellId)}
             />
           ))}
         </MapView>
       </View>
 
-      <ThemedText type="small" themeColor="textSecondary">
-        Tap any 5×5 km cell pin to switch local EO climate, soil pH, and slope priors.
+      <ThemedText type="small" themeColor="secondary">
+        Tap any 5×5 km cell pin to switch local EO climate, soil pH, and slope
+        priors.
       </ThemedText>
     </View>
   );
@@ -104,10 +114,10 @@ export function AshantiMapPreview({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Radii.lg,
+    borderRadius: roofiRadii['2xl'],
     borderWidth: 1,
-    padding: Spacing.three,
-    gap: 10,
+    padding: roofiSpacing[4],
+    gap: 12,
   },
   headerRow: {
     flexDirection: 'row',
@@ -117,11 +127,19 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+  },
+  iconChip: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mapFrame: {
-    height: 176,
-    borderRadius: Radii.md,
+    height: 184,
+    borderRadius: roofiRadii.xl,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   map: {
